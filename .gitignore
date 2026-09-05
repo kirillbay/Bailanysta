@@ -1,0 +1,88 @@
+# Bailanysta — .gitignore
+# STEP 0 — никогда не коммитить секреты, зависимости и артефакты сборки
+
+# ── Secrets & env ──
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ── Python / Backend ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.venv/
+venv/
+env/
+ENV/
+.conda/
+*.egg-info/
+dist/
+build/
+*.whl
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.log
+
+# ── Alembic / DB ──
+# (миграции коммитим, но не локальные БД)
+*.db
+*.sqlite
+*.sqlite3
+backend/uploads/
+uploads/
+
+# ── Node / Frontend ──
+node_modules/
+.pnp/
+.pnp.js
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.bundle/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ── IDE / Editors ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+
+# ── Temporary ──
+tmp/
+temp/
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+
+# ── Docs build ──
+docs/_build/
+
+# ── Misc ──
+*.bak
+*.backup

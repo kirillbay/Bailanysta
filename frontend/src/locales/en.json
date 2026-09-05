@@ -1,0 +1,40 @@
+{
+  "common": {
+    "appName": "Bailanysta",
+    "tagline": "Social platform for IT communities",
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "comingSoon": "Coming soon"
+  },
+  "nav": {
+    "feed": "Feed",
+    "explore": "Explore",
+    "clubs": "Clubs",
+    "messages": "Messages",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "bookmarks": "Bookmarks",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Sign up",
+    "logout": "Log out",
+    "username": "Username",
+    "email": "Email",
+    "password": "Password"
+  },
+  "post": {
+    "create": "Create",
+    "placeholder": "What's happening in tech?",
+    "like": "Like",
+    "comment": "Comment",
+    "share": "Share",
+    "bookmark": "Bookmark"
+  }
+}

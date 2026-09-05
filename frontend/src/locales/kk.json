@@ -1,0 +1,40 @@
+{
+  "common": {
+    "appName": "Bailanysta",
+    "tagline": "IT қауымдастығына арналған әлеуметтік платформа",
+    "loading": "Жүктелуде...",
+    "error": "Қате",
+    "retry": "Қайталау",
+    "save": "Сақтау",
+    "cancel": "Болдырмау",
+    "delete": "Жою",
+    "edit": "Өңдеу",
+    "comingSoon": "Жақында"
+  },
+  "nav": {
+    "feed": "Лента",
+    "explore": "Іздеу",
+    "clubs": "Клубтар",
+    "messages": "Хабарламалар",
+    "notifications": "Хабарландырулар",
+    "profile": "Профиль",
+    "bookmarks": "Сақталған",
+    "settings": "Баптаулар"
+  },
+  "auth": {
+    "login": "Кіру",
+    "register": "Тіркелу",
+    "logout": "Шығу",
+    "username": "Пайдаланушы аты",
+    "email": "Email",
+    "password": "Құпиясөз"
+  },
+  "post": {
+    "create": "Жасау",
+    "placeholder": "IT әлемінде не жаңалық?",
+    "like": "Ұнады",
+    "comment": "Пікір жазу",
+    "share": "Бөлісу",
+    "bookmark": "Сақтау"
+  }
+}

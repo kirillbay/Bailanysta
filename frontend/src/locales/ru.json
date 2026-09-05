@@ -1,0 +1,40 @@
+{
+  "common": {
+    "appName": "Bailanysta",
+    "tagline": "Социальная платформа для IT-комьюнити",
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "retry": "Повторить",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "comingSoon": "Скоро"
+  },
+  "nav": {
+    "feed": "Лента",
+    "explore": "Поиск",
+    "clubs": "Клубы",
+    "messages": "Сообщения",
+    "notifications": "Уведомления",
+    "profile": "Профиль",
+    "bookmarks": "Сохранённое",
+    "settings": "Настройки"
+  },
+  "auth": {
+    "login": "Войти",
+    "register": "Регистрация",
+    "logout": "Выйти",
+    "username": "Имя пользователя",
+    "email": "Email",
+    "password": "Пароль"
+  },
+  "post": {
+    "create": "Создать",
+    "placeholder": "Что нового в IT мире?",
+    "like": "Нравится",
+    "comment": "Комментировать",
+    "share": "Поделиться",
+    "bookmark": "Сохранить"
+  }
+}
