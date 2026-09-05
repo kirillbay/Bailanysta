@@ -22,7 +22,7 @@ export function SearchPage() {
   const typeParam = (searchParams.get("type") as any) || "all";
   const [q, setQ] = useState(qParam);
   const debounced = useDebounce(q, 400);
-  const [tab, setTab] = useState<"all" | "users" | "posts" | "hashtags">(typeParam);
+  const [tab, setTab] = useState<"all" | "users" | "posts" | "hashtags" | "projects">(typeParam);
   const [result, setResult] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,8 +75,8 @@ export function SearchPage() {
             onKeyDown={(e) => e.key === "Enter" && setResult(null)}
           />
         </div>
-        <div className="flex gap-2">
-          {(["all", "users", "posts", "hashtags"] as const).map((t) => (
+        <div className="flex gap-2 flex-wrap">
+          {(["all", "users", "posts", "hashtags", "projects"] as const).map((t) => (
             <button
               key={t}
               onClick={() => handleTab(t)}
@@ -129,6 +129,22 @@ export function SearchPage() {
                   <Link key={h.id} to={`/hashtags/${h.name}`} className="block rounded-xl border bg-card p-3 hover:bg-accent">
                     <p className="text-sm font-medium">#{h.name}</p>
                     <p className="text-xs text-muted-foreground">{h.posts_count} постов</p>
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
+          {(tab === "all" || tab === "projects") && (
+            <div className="space-y-2">
+              <h2 className="text-sm font-semibold">Проекты ({result.projects?.length ?? 0})</h2>
+              {(result.projects?.length ?? 0) === 0 ? (
+                <p className="text-xs text-muted-foreground">Проектов не нашли</p>
+              ) : (
+                result.projects.map((p) => (
+                  <Link key={p.id} to={`/projects/${p.id}`} className="block rounded-xl border bg-card p-3 hover:bg-accent space-y-1">
+                    <p className="text-sm font-medium">{p.name}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{p.description}</p>
+                    {p.technologies?.length > 0 && <p className="text-[11px] text-muted-foreground">{p.technologies.join(" · ")}</p>}
                   </Link>
                 ))
               )}

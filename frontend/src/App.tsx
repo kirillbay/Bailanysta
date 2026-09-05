@@ -15,6 +15,8 @@ import { ClubsPage } from "@/pages/ClubsPage";
 import { ClubPage } from "@/pages/ClubPage";
 import { ClubChannelPage } from "@/pages/ClubChannelPage";
 import { NotificationsPage } from "@/pages/NotificationsPage";
+import { ProjectsPage } from "@/pages/ProjectsPage";
+import { ProjectDetailPage } from "@/pages/ProjectDetailPage";
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -37,10 +39,8 @@ const router = createBrowserRouter([
       { path: "/clubs", element: <ClubsPage /> },
       { path: "/clubs/:slug", element: <ClubPage /> },
       { path: "/clubs/:slug/channels/:channelSlug", element: <ClubChannelPage /> },
-      {
-        path: "/projects",
-        element: <PlaceholderPage titleKey="nav.projects" fallbackTitle="Projects" description="Витрина проектов — GitHub, demo, технологии." />,
-      },
+      { path: "/projects", element: <ProjectsPage /> },
+      { path: "/projects/:projectId", element: <ProjectDetailPage /> },
       {
         path: "/messages",
         element: <PlaceholderPage titleKey="nav.messages" fallbackTitle="Messages" description="Личные сообщения и каналы клубов (WebSocket-ready)." />,

@@ -1462,6 +1462,234 @@ All fixed before green.
 
 ---
 
+## STEP 11 — Notifications & Realtime
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Реализовать realtime + notifications: Notification model, WebSocket manager (/ws), channel/message broadcast, notifications API/UI, без Redis, с HTTP fallback.
+
+### Implemented
+
+**Backend:**
+- `models/notification.py` — recipient FK CASCADE, actor FK SET NULL, type, title/message, entity_type/id, is_read, created_at, indexes recipient+created/read
+- `alembic 008_create_notifications` — --sql verified
+- `services/notifications.py` — create_notification no self, notify_follow/like/comment
+- `api/v1/notifications.py` — GET list/unread-count, PATCH read, POST read-all, DELETE, integration follows/like/comment
+- `realtime/manager.py` — in-memory user_connections + channel_subscribers + Lock, no Redis
+- `api/v1/realtime.py` — /ws auth via cookie/?token, 4401, subscribe with membership IDOR, broadcast
+- `api/v1/club_messages.py` — DB commit before broadcast, dedup via id
+- `router.py` + notifications, realtime
+
+**Frontend:**
+- `api/notifications.ts`, `hooks/useRealtime.ts` (http→ws, backoff 1s→16s), `pages/NotificationsPage.tsx`, `pages/ClubChannelPage.tsx` + WS status, `AppShell` badge, `App.tsx` /notifications
+
+### Files Changed
+
+```
+[new] backend/app/models/notification.py
+[mod] backend/app/models/__init__.py
+[new] backend/alembic/versions/008_create_notifications.py
+[new] backend/app/services/notifications.py
+[new] backend/app/api/v1/notifications.py
+[mod] backend/app/api/v1/follows.py
+[mod] backend/app/api/v1/posts.py
+[mod] backend/app/api/v1/comments.py
+[mod] backend/app/api/v1/club_messages.py
+[mod] backend/app/api/v1/router.py
+[new] backend/app/realtime/manager.py
+[new] backend/app/api/v1/realtime.py
+[new] backend/app/tests/test_notifications.py (10)
+[new] backend/app/tests/test_realtime.py (11)
+[new] frontend/src/api/notifications.ts
+[new] frontend/src/hooks/useRealtime.ts
+[new] frontend/src/pages/NotificationsPage.tsx
+[mod] frontend/src/pages/ClubChannelPage.tsx
+[mod] frontend/src/components/layout/AppShell.tsx
+[mod] frontend/src/App.tsx
+```
+
+### Database Changes
+
+- Migration 008 — notifications table, FK, indexes
+
+### API Changes
+
+- `GET /notifications`, `GET /unread-count`, `PATCH /{id}/read`, `POST /read-all`, `DELETE /{id}` — recipient only 403 else
+- `WS /ws` — auth, subscribe with channel membership, events connected/subscribed/message.created|updated|deleted/notification.created/error
+
+### Frontend Changes
+
+- NotificationsPage, badge 99+, useRealtime hooks, ClubChannelPage WS status
+
+### Security Changes
+
+- WS same decode_token, IDOR via club, no self notification, 4401
+
+### Tests
+
+- notifications 10, realtime 11, total 206 passed
+
+### Build
+
+- tsc PASS, build 1707 modules 509kB
+
+### Problems
+
+- No Redis (debt)
+
+### Fixed
+
+- Manager Lock, ghost-free broadcast
+
+### Known Issues
+
+- Single instance only
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| In-memory manager | no Redis | MVP |
+
+### Next Step
+
+**STEP 12 — Projects**
+
+- projects showcase
+
+---
+
+## STEP 12 — Projects & Developer Showcase
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Реализовать полноценный раздел Projects / Developer Showcase: name/description/technologies/github/demo/image/status, showcase в профиле, публичный просмотр, поиск, без GitHub API/code hosting.
+
+### Implemented
+
+**Backend:**
+- `models/project.py` — id UUID PK, owner_id FK CASCADE, name 150, description Text, technologies JSON, github/demo/image 512, status 20 default idea, position int, created/updated, indexes owner, owner+position, owner+created
+- `schemas/project.py` — ProjectCreate/Update/Read, status enum 4, tech max 20×50 dedup lower, github host github.com/www.github.com, demo https/http, reject javascript/data/file
+- `alembic 009_create_projects` — projects --sql verified
+- `api/v1/projects.py` — GET /users/{username}/projects public 404 limit 50 position ASC, GET /users/me/projects auth, GET /projects/{id} public 404, POST /users/me/projects 201 owner=current_user position max+1 no forgery, PATCH/DELETE owner 403 best-effort unlink, POST .../image owner 403 save_image projects/ Pillow 5MB UUID
+- `api/v1/search.py` — +projects ILIKE name/description/cast(tech) parameterized
+- `api/v1/router.py` + projects
+
+**Frontend:**
+- `api/projects.ts` — listUser/listMy/get/create/update/delete/uploadImage + resolveImage
+- `components/ProjectCard.tsx` — image/gradient, status badge, tech badges, GitHub/Demo external noopener, owner link
+- `components/ProjectForm.tsx` — RHF Zod + chip tech Enter dedup max 20/50
+- `pages/ProjectsPage.tsx` — /projects my showcase + upload
+- `pages/ProjectDetailPage.tsx` — /projects/:id public
+- `pages/ProfilePage.tsx` — tabs Posts|Projects, public list + own inline CRUD + upload, empty states
+- `pages/SearchPage.tsx` + projects type
+- `App.tsx` + /projects, /projects/:id, `api/search.ts` + projects
+
+### Files Changed
+
+```
+[new] backend/app/models/project.py
+[mod] backend/app/models/__init__.py (+ Project)
+[new] backend/alembic/versions/009_create_projects.py
+[new] backend/app/schemas/project.py
+[new] backend/app/api/v1/projects.py
+[mod] backend/app/api/v1/router.py (+ projects)
+[mod] backend/app/api/v1/search.py (+ projects ILIKE)
+[new] backend/app/tests/test_projects.py (24 tests)
+[new] frontend/src/api/projects.ts
+[new] frontend/src/components/ProjectCard.tsx
+[new] frontend/src/components/ProjectForm.tsx
+[new] frontend/src/pages/ProjectsPage.tsx
+[new] frontend/src/pages/ProjectDetailPage.tsx
+[mod] frontend/src/pages/ProfilePage.tsx (+ Projects|Posts tabs)
+[mod] frontend/src/pages/SearchPage.tsx (+ projects tab)
+[mod] frontend/src/api/search.ts (+ projects)
+[mod] frontend/src/App.tsx (+ /projects, /projects/:projectId)
+```
+
+### Database Changes
+
+- Migration 009 — projects table, FK CASCADE, indexes owner/position/created, --sql OK
+
+### API Changes
+
+- `GET /api/v1/users/{username}/projects?limit&offset` 200 public 404 user
+- `GET /api/v1/users/me/projects?limit&offset` 200 auth
+- `GET /api/v1/projects/{project_id}` 200 public 404
+- `POST /api/v1/users/me/projects` 201 auth name 150 desc 1-2000 tech 20×50 status enum github host demo URL
+- `PATCH /api/v1/users/me/projects/{id}` 200 owner 403 other 404
+- `DELETE /api/v1/users/me/projects/{id}` 204 owner 403
+- `POST /api/v1/users/me/projects/{id}/image` 200 owner 403 Pillow 5MB UUID projects/
+- `GET /api/v1/search?q=&type=projects` ILIKE name/description/tech, limit 50, no sensitive
+
+### Frontend Changes
+
+- ProjectsPage + ProjectDetailPage + Profile tabs + ProjectCard/Form + Search projects, TanStack Query invalidate, skeleton/empty/error, premium card
+
+### Security Changes
+
+- Ownership IDOR 403, no owner_id forgery, URL scheme/host, tech limits dedup, status enum, image UUID safe, search parameterized, no GitHub API
+
+### Tests
+
+- `pytest app/tests/test_projects.py -v` → **24 passed in 3.74s**:
+  - CRUD 6 (create, list own+public, get, update own, delete own, pagination ordering)
+  - Validation 8 (empty/long name/desc, invalid status, tech too long/too many/dedup, URL scheme/host)
+  - Security 6 (unauth 401, cannot update/delete/upload other 403, forged owner ignored, sensitive, image 415)
+  - Image 3 (success projects/, invalid, unauth 401)
+  - Search 1 (name/desc/tech ILIKE)
+- `pytest -v` all → **230 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 10 notifications + 11 realtime + 24 projects) 36.57s
+- `tsc --noEmit` PASS, `npm run build` 1712 modules 526.96kB js gzip 155.73kB
+
+### Build
+
+- Frontend 3.08s, 18.88kB css
+- Backend import ok, routes /projects, /search verified, `alembic upgrade head --sql` all 9 migrations OK
+
+### Problems
+
+- Badge variant prop not exists — fixed to className
+- /users/me/projects route order vs /users/{username}/projects — fixed me first
+- projectsApi remove duplicate — removed
+- ProjectsPage double useQuery import — fixed
+
+### Fixed
+
+- All fixed before green.
+
+### Known Issues
+
+- No GitHub API/OAuth (showcase links only)
+- No drag&drop reorder (position debt)
+- ILIKE search (MVP)
+- Single instance manager (debt)
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| JSON technologies | max 20×50 dedup lower | MVP showcase no taxonomy |
+| Status enum Pydantic | 4 values | Limited set |
+| URL validate urlparse | github host check | Security |
+| Position max+1 | no reorder drag | Debt |
+| Storage reuse uploads/projects | UUID Pillow | Reuse |
+
+### Next Step
+
+**STEP 13 — i18n/Theme/Responsive**
+
+- polish i18n, theme audit, responsive QA
+
+---
+
 <!-- Шаблон для следующего STEP — копировать и заполнять:
 
 ## STEP X — Название

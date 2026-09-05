@@ -15,12 +15,14 @@ from app.api.v1.club_channels import router as channels_router
 from app.api.v1.club_messages import router as club_messages_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.realtime import router as realtime_router
+from app.api.v1.projects import router as projects_router
 
 api_router = APIRouter()
 
 api_router.include_router(health_router, tags=["health"])
 api_router.include_router(auth_router, tags=["auth"])
 api_router.include_router(users_router, tags=["users"])
+api_router.include_router(projects_router)
 api_router.include_router(posts_router, tags=["posts"])
 api_router.include_router(feed_router, tags=["feed"])
 api_router.include_router(comments_router, tags=["comments"])

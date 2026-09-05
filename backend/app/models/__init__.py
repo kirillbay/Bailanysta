@@ -9,5 +9,6 @@ from app.models.club import Club, ClubMember, slugify  # noqa: F401
 from app.models.club_channel import ClubChannel, channel_slugify  # noqa: F401
 from app.models.club_message import ClubMessage  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
+from app.models.project import Project  # noqa: F401
 
-__all__ = ["User", "Post", "PostMedia", "Hashtag", "post_hashtags", "PostLike", "Comment", "PostRepost", "Bookmark", "Follow", "Story", "Club", "ClubMember", "slugify", "ClubChannel", "channel_slugify", "ClubMessage", "Notification"]
+__all__ = ["User", "Post", "PostMedia", "Hashtag", "post_hashtags", "PostLike", "Comment", "PostRepost", "Bookmark", "Follow", "Story", "Club", "ClubMember", "slugify", "ClubChannel", "channel_slugify", "ClubMessage", "Notification", "Project"]

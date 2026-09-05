@@ -391,3 +391,27 @@ backend/
 - Flow: `POST message → DB commit → manager.broadcast_channel → WS subscribers` (ghost-free, dedup via id), `POST follow/like/comment → create_notification → manager.send_to_user`
 - HTTP fallback: `GET /clubs/.../messages` still works via HTTP, WS is enhancement, polling not aggressive
 - Следующий: **STEP 12 — Projects**
+
+## 17. STEP 12 Implementation (2026-09-05)
+
+**Projects & Developer Showcase реализован:**
+- Models: `Project` (owner_id FK CASCADE, name 150, description Text, technologies JSON, github_url/demo_url/image_url 512, status idea/in_progress/completed/archived, position int, created/updated, indexes owner, owner+position, owner+created)
+- Schemas: `schemas/project.py` (ProjectCreate 1-150/1-2000/technologies max 20×50 dedup lower/status enum/github host demo URL https/http, ProjectUpdate partial, ProjectRead + OwnerPublic)
+- Migration: `009_create_projects` — projects table — `--sql` verified (PostgresqlImpl), downgrade DROP
+- APIs: `api/v1/projects.py` — `GET /users/{username}/projects` public 404 pagination 50 position ASC created DESC, `GET /users/me/projects` auth, `GET /projects/{id}` public 404, `POST /users/me/projects` 201 owner=current_user no forgery position max+1, `PATCH` owner 403, `DELETE` owner 403 + best-effort file unlink, `POST image` owner 403 save_image projects/ UUID Pillow 5MB, `router.py` + projects, `search.py` + projects ILIKE name/description/cast(technologies) (parameterized, trim, max 100, limit 50)
+```
+User
+ ├── Posts
+ ├── Stories
+ ├── Clubs
+ ├── Projects  ← showcase layer, not source-code hosting
+ └── Notifications
+Project
+ ├── owner (User)
+ ├── technologies (JSON array)
+ ├── github_url/demo_url (validated URL, github host)
+ └── image (uploads/projects)
+```
+- Frontend: `api/projects.ts` (listUser/listMy/get/create/update/delete/uploadImage + resolveImage), `components/ProjectCard.tsx` (gradient fallback, status badge, tech badges, GitHub/Demo external rel noopener), `components/ProjectForm.tsx` (RHF Zod + chip input Enter dedup max 20/50), `pages/ProjectsPage.tsx` (/projects my showcase + upload), `pages/ProjectDetailPage.tsx` (/projects/:id public), `pages/ProfilePage.tsx` tabs Posts|Projects (public list, own inline CRUD + upload, empty states), `pages/SearchPage.tsx` + projects type, `App.tsx` + /projects & /projects/:id
+- Showcase nature: developer showcase + GitHub/demo links only, no GitHub API/OAuth, no repository sync, no code hosting — documented
+- Следующий: **STEP 13 — i18n/Theme/Responsive**

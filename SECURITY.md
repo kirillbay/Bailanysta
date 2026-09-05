@@ -208,3 +208,21 @@ Full rate limiting (5/min/IP на login, счётчик неудач, slowapi/re
 **Rate/abuse:** WS max payload 10k, invalid JSON → error, unknown type → error, no giant payload, HTTP message limits already 1-10000, no bypass via WS (WS only subscribes, not creates messages via WS; creation via HTTP POST, so HTTP validation still applies, no WS message creation endpoint to bypass).
 
 **No Redis:** in-memory `manager` (user_connections, channel_subscribers, Lock) — single instance only, documented debt for future Redis Pub/Sub, no distributed event bus, no Celery, no Socket.IO.
+
+## 17. STEP 12 — Projects Security
+
+**Ownership / IDOR:** `POST /users/me/projects` ignores any `owner_id` from client (`owner_id = current_user.id`), `PATCH/DELETE/POST .../image` check `project.owner_id == current_user.id` (403 else) via DB, `GET /users/{username}/projects` public but `GET /users/me/projects` requires auth, `GET /projects/{id}` public but mutation only via `/users/me/projects/{id}` with owner check, UUID not auth, no escalation.
+
+**URL validation:** `github_url` must be `https://` or `http://` + host `github.com`/`www.github.com` (Pydantic `_validate_url` + urlparse, reject `javascript:`/`data:`/`file:`), `demo_url` allows any `https`/`http` but same scheme reject, max 512, both Pydantic Field, no SSRF (no HTTP fetch during validation, just parse), no `dangerouslySetInnerHTML` (React escape, whitespace-pre-wrap).
+
+**Technologies:** max 20, each max 50 chars, trim, dedup case-insensitive, no taxonomy table (MVP), stored as JSON (Postgres JSON / SQLite TEXT), no injection (Pydantic list of str).
+
+**Status:** limited enum `idea/in_progress/completed/archived` (Pydantic enum), no arbitrary values, no DB enum to keep SQLite compat, validated before DB.
+
+**Image upload:** `POST /users/me/projects/{id}/image` owner only 403, uses `services/storage.py:save_image` (Pillow verify, MIME allowlist jpeg/png/webp, UUID hex filename, safe_subdir projects alphanumeric, 5 MB via `_validate_size` 413, no path traversal `../../` → safe, no overwrite, stored `uploads/projects/` gitignored, old file best-effort delete after DB commit, public_url `/uploads/projects/<uuid>.ext` served via StaticFiles no exec).
+
+**Search:** `q` trim max 100, parameterized `like` (SQLAlchemy), no raw f-string, ILIKE via `func.lower().like`, cast technologies to String for SQLite compat, limit 50, no giant payload.
+
+**No GitHub API:** no OAuth, no token, no repository sync, no code hosting, only showcase links — documented to avoid false security claims.
+
+**Rate/performance:** pagination 50, no N+1 (projects single query ordered by position+created), no external HTTP during list, no E2EE/private DM.

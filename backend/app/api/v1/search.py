@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
+import sqlalchemy as sa
 from sqlalchemy import func, or_
 
 from app.database.session import get_db
@@ -9,6 +10,7 @@ from app.models.user import User
 from app.models.post import Post, Hashtag
 from app.models.follow import Follow
 from app.models.social import PostLike, Comment, PostRepost, Bookmark
+from app.models.project import Project
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -41,14 +43,14 @@ def _post_enrich(posts, db, q_user_id=None):
     return result
 
 @router.get("", response_model=dict)
-def search(q: str = Query("", max_length=MAX_Q_LEN), type: str = Query("all", pattern="^(all|users|posts|hashtags)$"), limit: int = Query(10, ge=1, le=50), offset: int = Query(0, ge=0), db: Session = Depends(get_db)):
+def search(q: str = Query("", max_length=MAX_Q_LEN), type: str = Query("all", pattern="^(all|users|posts|hashtags|projects)$"), limit: int = Query(10, ge=1, le=50), offset: int = Query(0, ge=0), db: Session = Depends(get_db)):
     q = (q or "").strip()
     if not q:
-        return {"users": [], "posts": [], "hashtags": [], "query": q}
+        return {"users": [], "posts": [], "hashtags": [], "projects": [], "query": q}
     if len(q) > MAX_Q_LEN:
         raise HTTPException(status_code=422, detail="Query too long")
     # optional current user for is_following/liked flags — try to get from cookie but search is public, so no auth required
-    result = {"query": q, "users": [], "posts": [], "hashtags": []}
+    result = {"query": q, "users": [], "posts": [], "hashtags": [], "projects": []}
     q_lower = q.lower().lstrip("#")
     # Users
     if type in ("all", "users"):
@@ -72,4 +74,31 @@ def search(q: str = Query("", max_length=MAX_Q_LEN), type: str = Query("all", pa
         tags = db.query(Hashtag).filter(func.lower(Hashtag.name).like(like)).limit(min(limit,50)).offset(offset).all()
         # count posts per hashtag
         result["hashtags"] = [{"id": str(t.id), "name": t.name, "posts_count": db.query(func.count(Post.id)).join(Post.hashtags).filter(Hashtag.id == t.id).scalar() or 0} for t in tags]
+    # Projects — search by name / description / technologies (ILIKE for MVP, parameterized)
+    if type in ("all", "projects"):
+        like = f"%{q_lower}%"
+        # technologies is JSON; for SQLite json column is text, cast to string
+        # Use func.lower on casted fields where applicable
+        projects = db.query(Project).filter(
+            or_(
+                func.lower(Project.name).like(like),
+                func.lower(Project.description).like(like),
+                func.lower(func.cast(Project.technologies, sa.String)).like(like),
+            )
+        ).order_by(Project.created_at.desc()).limit(min(limit,50)).offset(offset).all()
+        result["projects"] = [
+            {
+                "id": str(p.id),
+                "owner_id": str(p.owner_id),
+                "name": p.name,
+                "description": p.description[:200],
+                "technologies": p.technologies or [],
+                "github_url": p.github_url,
+                "demo_url": p.demo_url,
+                "image_url": p.image_url,
+                "status": p.status,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in projects
+        ]
     return result
