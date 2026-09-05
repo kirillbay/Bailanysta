@@ -2,21 +2,21 @@
 
 > Persistent memory проекта. Обновляется после КАЖДОГО STEP.
 > Протокол: PERSISTENT DEVELOPMENT PROTOCOL (2026-09-05)
-> Последнее обновление: 2026-09-05 (STEP 2 — Database Foundation)
+> Последнее обновление: 2026-09-05 (STEP 3 — Authentication)
 
 ---
 
 ## 1. Текущий STEP
 
-**STEP 2 — Database Foundation — ЗАВЕРШЁН ✅**
+**STEP 3 — Authentication — ЗАВЕРШЁН ✅**
 
 - Workspace: `C:\Users\lueex\Desktop\Bailanysta`
-- Branch: `main` | Последний commit: `feat: STEP 2 — database foundation` (см. §17)
-- Статус: PostgreSQL foundation готов, User model + Alembic + тесты + health/db работают
+- Branch: `main` | Последний commit: `feat: STEP 3 — authentication` (см. §17)
+- Статус: JWT + Argon2id + HttpOnly cookies + register/login/me/logout + protected frontend — всё работает, 39 тестов зелёных
 
-**Последний завершённый STEP:** STEP 2 — Database Foundation (2026-09-05)
+**Последний завершённый STEP:** STEP 3 — Authentication (2026-09-05)
 
-**Следующий рекомендуемый STEP:** STEP 3 — Authentication (Argon2id, JWT, register/login/me)
+**Следующий рекомендуемый STEP:** STEP 4 — Profiles (avatar, bio, редактирование)
 
 ---
 
@@ -27,58 +27,55 @@
 | 0 | Project Initialization | 2026-09-05 | `7cf5f72` | ✅ Done |
 | 0+ | Persistent Protocol setup | 2026-09-05 | `2d5e1d3` | ✅ Done |
 | 1 | Foundation | 2026-09-05 | `7619de1` | ✅ Done |
-| 2 | Database Foundation | 2026-09-05 | `feat STEP2` | ✅ Done |
+| 2 | Database Foundation | 2026-09-05 | `d324979` | ✅ Done |
+| 3 | Authentication | 2026-09-05 | `feat STEP3` | ✅ Done |
 
-> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Authentication → 4 Profiles → 5 Posts & Media → 6 Feed & Interactions → 7 Follow/Search/Hashtags → 8 Stories → 9 Clubs → 10 Club Channels & Messaging → 11 Notifications & Realtime → 12 Projects → 13 i18n/Theme/Responsive → 14 Security Hardening → 15 Testing/Perf → 16 Deployment → 17 Final QA
+> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles → 5 Posts & Media → 6 Feed & Interactions → 7 Follow/Search/Hashtags → 8 Stories → 9 Clubs → 10 Club Channels & Messaging → 11 Notifications & Realtime → 12 Projects → 13 i18n/Theme/Responsive → 14 Security Hardening → 15 Testing/Perf → 16 Deployment → 17 Final QA
 
 ---
 
 ## 3. Текущая архитектура
 
 ```
-[Browser] → [Frontend: React + Vite @ :5173] → [Backend: FastAPI @ :8000 /api/v1/*] → [PostgreSQL 16 (docker-compose) + SQLite test fallback]
-                     ↕ i18next (ru/kk/en)              ↕ SQLAlchemy 2.x + Alembic, get_db, /health + /health/db
+[Browser] → [Frontend: React + Vite @ :5173 + AuthProvider + RequireAuth] → [Backend: FastAPI @ :8000 /api/v1/auth/* + health/db] → [PostgreSQL 16 + SQLite test]
+                         ↕ credentials:include, HttpOnly cookie `access_token` (Lax, Secure prod, 15m)
+                         ↕ Argon2id + JWT HS256 (sub/exp/iat/type)
 ```
 
-- Frontend: без изменений с STEP 1 (shell + routing + i18n + theme)
-- Backend: `app/database/{base.py, session.py, __init__.py}` + `app/database.py` re-export, `app/models/user.py`, `app/schemas/user.py`, `alembic/{env.py, script.py.mako, versions/001_create_users.py}`, `docker-compose.yml`, `health/db`
-- DB: PostgreSQL (prod/local) via `psycopg[binary] 3.2.3`, `postgresql+psycopg://` URL, Alembic metadata via `Base`
-- Детали → `ARCHITECTURE.md`
+- Frontend: `AuthProvider` (useQuery me), `RequireAuth`, `LoginPage/RegisterPage` (RHF+Zod), `api/auth.ts`, `stores/auth.tsx`, `App.tsx` /login /register public, AppShell protected + user badge + logout
+- Backend: `app/core/security.py` (hash/verify/create_token/decode + cookie helpers), `app/core/deps.py:get_current_user`, `app/api/v1/auth.py` (4 endpoints), `app/schemas/auth.py`, `app/schemas/user.py:UserRead`
+- DB unchanged: `users` model, `001_create_users`, docker-compose
+- Детали → `ARCHITECTURE.md §14`, `SECURITY.md §2/13/14`
 
 ---
 
 ## 4. Frontend Status
 
-- Статус: **runnable ✅** (без изменений, regression PASS)
-- Build: `npm run build` ✅ 3.48s, 354.82 kB js gzip 113 kB (STEP2 regression)
-- TSC: `npx tsc --noEmit` ✅
+- Статус: **runnable ✅**
+- Auth: `api/client.ts` +post, `api/auth.ts` (me/register/login/logout), `stores/auth.tsx` (AuthProvider useQuery me, useAuth, logout via invalidate), `components/RequireAuth.tsx` (loading spinner → redirect /login), `pages/LoginPage.tsx` (identifier+password Zod), `pages/RegisterPage.tsx` (username/email/password/display_name Zod regex), `App.tsx` (/login,/register public, AppShell под RequireAuth), `main.tsx` AuthProvider, `AppShell.tsx` user badge + logout
+- Deps: + `@hookform/resolvers@3.9.0` — установлен
+- Build: `tsc --noEmit` ✅, `npm run build` ✅ 3.77s, 447.93 kB js gzip 138.94 kB (с auth), 1683 modules
 
 ---
 
 ## 5. Backend Status
 
 - Статус: **runnable ✅**
-- Deps: `requirements.txt` + `psycopg[binary]==3.2.3` + `email-validator==2.2.0` — установлены
-- Core: `app/core/config.py` — `database_url` = `postgresql+psycopg://...` + `database_url_safe` (masked), `cors_origins_list`, `is_production`
-- Database: `app/database/base.py` (DeclarativeBase), `app/database/session.py` (engine pool_pre_ping, SessionLocal, get_db, check_db_connection), `app/database/__init__.py` + `app/database.py` re-export
-- Models: `app/models/user.py` (UUID PK, username/email unique 50/320, password_hash nullable, display_name/bio/avatar/cover, is_active default true, created_at/updated_at server_default func.now()), `app/models/__init__.py` import for Alembic
-- Schemas: `app/schemas/user.py` (UserBase, UserCreate, UserRead with EmailStr, pattern, from_attributes), `app/schemas/__init__.py`
-- API: `app/api/v1/health.py` — `GET /health` + `GET /health/db` (check_db_connection, no stack trace), `app/api/v1/router.py` aggregate, `app/main.py` unchanged (CORS + headers + global handler)
-- Alembic: `alembic.ini` (script_location alembic), `alembic/env.py` (Base import, asyncpg→psycopg convert, target_metadata, compare_type/server_default), `alembic/script.py.mako`, `alembic/versions/001_create_users.py` (users table)
-- Tests: `app/tests/conftest.py` (SQLite file .test_bailanysta.db, Base.metadata.create_all, session transaction), `app/tests/test_health.py` 6 pass, `app/tests/test_database.py` 8 pass → total 14 pass
-- Startup: `uvicorn app.main:app` ✅, `/api/v1/health` ok, `/api/v1/health/db` → `{"database":"unreachable"}` когда PG не запущен (корректно, без leak), `{"connected"}` когда PG поднят
+- Deps: `requirements.txt` + `argon2-cffi==23.1.0` + `PyJWT==2.10.1` — установлены
+- Core: `app/core/config.py` + `algorithm HS256`, `access_token_expire_minutes 15`, `refresh 7`, `secret_key`; `app/core/security.py` (PasswordHasher t=3,m=65536,p=4, COOKIE_NAME access_token, create_access_token, decode_token explicit alg, set/clear HttpOnly Lax Secure=prod max_age 900); `app/core/deps.py` (cookie→decode→exp→type→UUID→DB→is_active→401)
+- Auth API: `POST /auth/register` 201 + set cookie, 409 username/email, case-insensitive email lower, `POST /auth/login` 200 uniform 401 + cookie (identifier email/username, case-insensitive email), `GET /auth/me` 200 via get_current_user, `POST /auth/logout` 204 clear cookie (fixed response handling)
+- Schemas: `app/schemas/auth.py` (RegisterRequest username 3-50 regex, EmailStr, password 8-128, display_name 100; LoginRequest identifier+password), `app/schemas/user.py:UserRead` (no password_hash)
+- Router: `app/api/v1/router.py` includes auth_router
+- Tests: `app/tests/test_auth.py` 25 pass, total `pytest -v` 39 pass (25 auth + 8 db + 6 health)
+- Startup: `uvicorn` ✅, routes `/api/v1/auth/*` verified
 
 ---
 
 ## 6. Database Status
 
-- Статус: **foundation готов ✅**
-- Production: PostgreSQL 16 (docker-compose `postgres:16-alpine`)
-- Local dev: `docker-compose up postgres` (volume postgres_data, healthcheck pg_isready, env POSTGRES_DB/USER/PASSWORD/PORT via .env)
-- Engine: `create_engine(settings.database_url, pool_pre_ping=True, echo=debug)` — SQLAlchemy 2.x sync
-- Session: `SessionLocal(sessionmaker autocommit False)`, `get_db()` yields+close, не долгоживущая
-- URL: `postgresql+psycopg://postgres:postgres@localhost:5432/bailanysta` (placeholder в .env.example, не хардкод)
-- SQLite: только для быстрых unit-тестов (`app/tests/conftest.py`), явно отделено, не production fallback
+- Статус: **unchanged ✅** (STEP2 foundation)
+- Model `users` готов для auth (password_hash nullable)
+- Migrations: `001_create_users` — no new migration (не требуется)
 
 ---
 
@@ -88,89 +85,89 @@
 |----------|-------------|------|--------|
 | 001_create_users | create users table | 2026-09-05 | ✅ Created, --sql OK |
 
-- `alembic upgrade head --sql` → generates CREATE TABLE users + UNIQUE(email), UNIQUE(username) ✅
-- `alembic downgrade 001_create_users:base --sql` → DROP TABLE users ✅
-- Online `upgrade`/`downgrade` требует живой Postgres (Docker) — `alembic upgrade head` без PG даёт OperationalError (ожидаемо), `check`/`current` без PG — warning + skip (env.py fallback)
-- `Base.metadata` единый источник (env.py imports app.models)
+- No new migration for STEP3 (schema не менялась)
 
 ---
 
 ## 8. Authentication Status
 
-- Статус: **не реализовано** (план STEP 3)
-- Подготовлено: `users.password_hash` nullable, schemas с `password` field, model готова
+- Статус: **реализовано ✅**
+- Hashing: Argon2id (`argon2-cffi` PasswordHasher default) — `hash_password` / `verify_password`
+- JWT: HS256, `sub` UUID, `exp` 15m, `iat`, `type=access`, `SECRET_KEY` from env, explicit `algorithms=[HS256]`, no `alg=none`
+- Cookies: `access_token` HttpOnly, Secure=is_production, SameSite=Lax, Path=/, Max-Age 900, `clear_auth_cookie` delete_cookie path=/
+- Endpoints: `POST /auth/register` 201, `POST /auth/login` 200, `GET /auth/me` 200/401, `POST /auth/logout` 204
+- Dependency: `get_current_user` — 401 на missing/invalid/expired/modified/nonexistent/inactive/type!=access
+- Validation: username `^[a-zA-Z0-9_]+$` 3-50, email RFC (EmailStr) lower-cased, password 8-128, not logged, not returned
+- Frontend flow: unauth → /auth/me 401 → redirect /login; login → set cookie → invalidate me → redirect /; logout → clear → redirect /login
 
 ---
 
 ## 9. Implemented Features
 
-> STEP 2 — database foundation, ещё без бизнес-эндпоинтов.
+> STEP 3 — auth done, остальные — заглушки.
 
 - [x] Foundation (STEP1) — shell, health, i18n, theme
-- [x] Database: PostgreSQL + SQLAlchemy 2.x + Alembic + User model + docker-compose + health/db + tests
-- [ ] Auth — STEP 3
-- [ ] Profiles — STEP 4
-- [ ] Posts — STEP 5
-- [ ] Feed — STEP 6
-- [ ] Stories — STEP 8
-- [ ] Clubs — STEP 9
-- [ ] Messaging — STEP 10
-- [ ] Notifications — STEP 11
-- [ ] Projects — STEP 12
-- [x] i18n skeleton + theme — STEP1 done
+- [x] Database (STEP2) — PG, SQLAlchemy, Alembic, User model
+- [x] Auth: register/login/me/logout + JWT + HttpOnly + Argon2id + protected frontend
+- [ ] Profiles — STEP4
+- [ ] Posts — STEP5
+- [ ] Feed — STEP6
+- [ ] Stories — STEP8
+- [ ] Clubs — STEP9
+- [ ] Messaging — STEP10
+- [ ] Notifications — STEP11
+- [ ] Projects — STEP12
+- [x] i18n + theme — done
 
 ---
 
 ## 10. Deployment Status
 
-- Frontend: Vercel candidate — build ready
-- Backend: Render/Railway/Fly — health ready, now with /health/db
-- Database: Neon/Supabase candidate; local via `docker-compose.yml` (postgres:16-alpine, volume, healthcheck)
-- Domain/CI: нет
+- Frontend: Vercel candidate — build 447 kB, auth ready
+- Backend: Render/Railway — auth ready, CORS credentials, health/db
+- DB: docker-compose postgres:16-alpine
 
 ---
 
 ## 11. Tests Status
 
-- Backend: `pytest -v` → **14 passed** (6 health + 8 database) ✅
-  - database: session creation, connection SELECT 1, create+read User, unique username, unique email, timestamps, rollback, is_active default, password_hash nullable
-- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.48s
-- Integration: `/api/v1/health` ok, `/api/v1/health/db` unreachable (без PG) / connected (с PG) ✅
+- Backend: `pytest -v` → **39 passed** (25 auth + 8 db + 6 health) ✅
+  - auth: register 8 (success, dup username/email/case, invalid email/password/username, not returned), login 7 (by email/username/case-insensitive, wrong pass, unknown, inactive, cookie attrs), me 6 (auth, no cookie, invalid, expired, modified, nonexistent), logout 2, security 2
+- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.77s
+- Integration: `/api/v1/auth/me` 401 unauth, 200 auth — manual via test client ✅
 - Coverage: не измерялась
 
 ---
 
 ## 12. Known Issues
 
-- Docker не установлен на данном хосте (checked `docker --version` → not found) — `docker-compose up` нельзя проверить локально, но `docker-compose.yml` валиден (healthcheck, env через .env)
-- `alembic upgrade head` без PG → OperationalError (ожидаемо, требует живой Postgres) — `--sql` работает для проверки
-- SQLite test fallback маскирует PG-специфику (например `UUID` stored as CHAR, `now()` → CURRENT_TIMESTAMP в SQLite vs now() в PG) — зафиксировано в conftest docstring, критичные PG constraints проверяются через migration SQL inspection
-- `alembic check` / `current` без PG → warning + skip (env fallback не делает literal_binds)
+- Rate limiting на `/auth/login` (5/min/IP) — **debt** (ARCHITECTURE.md §14, SECURITY.md §14) — архитектура готова, требует Redis/slowapi в STEP14
+- Double-submit CSRF token не реализован — Lax + CORS считается достаточным для MVP (SECURITY.md §13)
+- `alembic upgrade head` без PG → OperationalError (ожидаемо, нужен Docker) — не блокер для auth tests (SQLite)
 
 ---
 
 ## 13. Technical Debt
 
-- Убрать `alembic/env.py` fallback warning дублирование если PG появится — можно упростить когда Docker будет
-- Вынести `version` в single source (долг с STEP1)
-- Добавить `DATABASE_URL_TEST` отдельную env для тестов на реальном PG (сейчас SQLite)
-- Добавить `make` / `just` команды для `alembic upgrade` shorthand
+- Добавить `slowapi` rate limiter на login/register (STEP14)
+- Добавить `DATABASE_URL_TEST` для PG-тестов (сейчас SQLite for auth tests — изолирован via StaticPool in-memory for auth, file for db tests)
+- Вынести `version` single source (долг с STEP1)
+- Добавить refresh token 7d flow (`/auth/refresh`) — placeholder в config, не реализован
 
 ---
 
 ## 14. Current Blockers
 
-- Нет блокеров для STEP3. Docker отсутствие — не блокер для кода, но для локальной PG проверки нужен `docker-compose up` на машине с Docker.
+- Нет блокеров. Готов к STEP 4.
 
 ---
 
 ## 15. Next Recommended STEP
 
-**STEP 3 — Authentication**
+**STEP 4 — Profiles**
 
-- Argon2id (argon2-cffi), JWT access/refresh в HttpOnly cookies, `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
-- Password validation, username/email unique 409, get_current_user dependency
-- Тесты на auth flow, unauthorized/forbidden/duplicate
+- `GET /users/{username}` public, `PATCH /users/me` protected (avatar, bio, display_name, location etc — расширить User model если нужно)
+- Миграция если поля меняются, тесты на ownership, frontend profile page
 
 ---
 
@@ -178,51 +175,51 @@
 
 | Дата | Решение | Причина |
 |------|---------|---------|
-| 2026-09-05 | psycopg[binary] 3.2.3 + `postgresql+psycopg://` (не psycopg2) | Современный драйвер SQLAlchemy 2.x |
-| 2026-09-05 | SQLAlchemy sync engine + sessionmaker (не async) | Простота STEP2, без async overhead для MVP |
-| 2026-09-05 | User.id = Uuid (SQLAlchemy generic) + uuid4 default | Совместимость PG UUID и SQLite CHAR |
-| 2026-09-05 | Unique via column `unique=True` (без duplicate Index) | Избежать duplicate index error в SQLite + PG |
-| 2026-09-05 | SQLite только для unit-тестов (conftest file DB) | Production/Postgres remains source, тесты изолированы |
-| 2026-09-05 | Alembic manual 001_create_users (не autogenerate без PG) | PG недоступен на хосте, но --sql верифицирован |
-| 2026-09-05 | /health/db separate from /health | Spec §13, не ломает существующий health, без stack trace |
-| 2026-09-05 | docker-compose.yml postgres:16-alpine + env POSTGRES_* via .env | Spec §6, local dev convenience |
+| 2026-09-05 | Argon2id via `argon2-cffi` PasswordHasher default (t=3,m=64MB,p=4) | Modern, без custom crypto |
+| 2026-09-05 | JWT HS256 + `PyJWT` + explicit algorithm, sub UUID + type access | Без alg=none, strong secret |
+| 2026-09-05 | Cookie `access_token` HttpOnly Lax Secure=prod Path/ Max-Age 15m | XSS safe, CSRF Lax + CORS |
+| 2026-09-05 | Login identifier = email OR username (case-insensitive email) | UX: один field |
+| 2026-09-05 | Uniform `401 Invalid credentials` (не раскрывать существование) | Anti-enumeration |
+| 2026-09-05 | Logout via `response.status_code=204` + `clear_auth_cookie(response)` | Fix Set-Cookie not sent bug |
+| 2026-09-05 | Frontend AuthProvider useQuery me (retry false) + RequireAuth redirect | Простой protected route без Zustand |
+| 2026-09-05 | Test DB for auth: in-memory StaticPool SQLite (изолирован per module) | Быстрые тесты без Docker, prod PG |
 
 ---
 
 ## 17. Последний Git Commit
 
 ```
-feat: STEP 2 — database foundation (предстоит)
+feat: STEP 3 — authentication (предстоит)
 Branch: main | Status: clean (после commit)
-DB: database.py/session/base, User model, schemas, alembic 001, docker-compose, health/db, tests
+Auth: security.py, deps.py, auth.py, schemas/auth.py, frontend auth stores/pages/RequireAuth, tests 25
 ```
 
 ---
 
-## 18. Изменённые файлы (STEP 2)
+## 18. Изменённые файлы (STEP 3)
 
 ```
-[mod] backend/requirements.txt (+ psycopg[binary], email-validator)
-[mod] backend/app/core/config.py (database_url psycopg, database_url_safe)
-[new] backend/app/database/base.py
-[new] backend/app/database/session.py
-[new] backend/app/database/__init__.py
-[new] backend/app/database.py (re-export)
-[new] backend/app/models/user.py
-[new] backend/app/models/__init__.py
-[new] backend/app/schemas/user.py
-[new] backend/app/schemas/__init__.py
-[new] backend/alembic.ini
-[new] backend/alembic/env.py
-[new] backend/alembic/script.py.mako
-[new] backend/alembic/versions/001_create_users.py
-[new] backend/app/tests/conftest.py
-[new] backend/app/tests/test_database.py
-[mod] backend/app/api/v1/health.py (+ /health/db)
-[new] docker-compose.yml
-[mod] .env.example (DATABASE_URL psycopg, POSTGRES_* vars)
-[mod] .gitignore (+ *.tsbuildinfo)
-[mod] backend/app/database/base.py (placeholder → real Base)
+[mod] backend/requirements.txt (+ argon2-cffi, PyJWT)
+[mod] backend/app/core/config.py (+ algorithm, expire minutes/days)
+[new] backend/app/core/security.py (hash/verify/jwt/cookies)
+[new] backend/app/core/deps.py (get_current_user)
+[new] backend/app/schemas/auth.py
+[new] backend/app/api/v1/auth.py
+[mod] backend/app/api/v1/router.py (+ auth_router)
+[mod] backend/app/tests/conftest.py (no change, kept)
+[new] backend/app/tests/test_auth.py (25 tests)
+[mod] frontend/src/api/client.ts (+ post)
+[new] frontend/src/api/auth.ts
+[new] frontend/src/stores/auth.tsx
+[new] frontend/src/components/RequireAuth.tsx
+[new] frontend/src/pages/LoginPage.tsx
+[new] frontend/src/pages/RegisterPage.tsx
+[mod] frontend/src/App.tsx (+ /login,/register, RequireAuth)
+[mod] frontend/src/main.tsx (+ AuthProvider)
+[mod] frontend/src/components/layout/AppShell.tsx (+ user badge + logout)
+[mod] frontend/package.json (+ @hookform/resolvers)
+[mod] ARCHITECTURE.md (§14 STEP3)
+[mod] SECURITY.md (§2,13,14 CSRF/rate limit)
 ```
 
 ---

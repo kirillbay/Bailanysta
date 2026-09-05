@@ -11,15 +11,15 @@ class Settings(BaseSettings):
 
     api_v1_prefix: str = "/api/v1"
 
-    # origins as comma-separated string in .env, parsed to list
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
-    # Production: PostgreSQL via psycopg (SQLAlchemy 2.x): postgresql+psycopg://user:pass@host:5432/db
-    # Legacy sqlite placeholder removed — see .env.example; value comes from env
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/bailanysta"
     secret_key: str = "change-me-in-production-generate-32-bytes"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 15
+    # Refresh not used in STEP3 simple flow, but kept for future
+    refresh_token_expire_days: int = 7
 
-    # Optional: used only for health info, never logged with credentials
     @property
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -30,7 +30,6 @@ class Settings(BaseSettings):
 
     @property
     def database_url_safe(self) -> str:
-        """Return DB URL with password masked for logging."""
         try:
             from urllib.parse import urlparse, urlunparse
 

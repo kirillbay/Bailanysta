@@ -50,9 +50,11 @@ export const api = {
   health(): Promise<HealthResponse> {
     return request<HealthResponse>("/api/v1/health");
   },
-  // placeholder for future endpoints — keep thin
   get<T>(path: string) {
     return request<T>(path);
+  },
+  post<T>(path: string, body: unknown) {
+    return request<T>(path, { method: "POST", body: JSON.stringify(body) });
   },
 };
 

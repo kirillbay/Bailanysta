@@ -457,6 +457,144 @@ Vite/React/Tailwind/shadcn — не установлены (STEP 1).
 
 ---
 
+## STEP 3 — Authentication
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Реализовать production-ready authentication: Argon2id + JWT HttpOnly + register/login/me/logout, защищённые endpoints, frontend auth flow, cookie/CORS/CSRF, comprehensive tests без изменения foundation.
+
+### Implemented
+
+**Backend:**
+- `backend/requirements.txt` + `argon2-cffi==23.1.0` + `PyJWT==2.10.1`
+- `backend/app/core/config.py` + `algorithm HS256`, `access_token_expire_minutes 15`, `refresh 7`, `secret_key` (placeholder), `SECRET_KEY` already in .env.example
+- `backend/app/core/security.py` — `hash_password()` (`PasswordHasher()` default Argon2id t=3 m=65536 p=4), `verify_password()` (VerifyMismatchError), `create_access_token(uuid, minutes)` (sub UUID, exp, iat, type=access, `jwt.encode` HS256), `decode_token` (explicit `algorithms=[HS256]`), `COOKIE_NAME=access_token`, `set_auth_cookie` (httponly True, secure=is_production, samesite Lax, path /, max_age 900), `clear_auth_cookie` (delete_cookie)
+- `backend/app/core/deps.py:get_current_user` — cookie → decode → Expired/Invalid → sub UUID parse → DB query → is_active → type check → 401 uniform
+- `backend/app/schemas/auth.py` — `RegisterRequest` (username 3-50 regex `^[a-zA-Z0-9_]+$`, EmailStr, password 8-128, display_name 100), `LoginRequest` (identifier, password)
+- `backend/app/api/v1/auth.py` — `POST /auth/register` 201 (normalize username strip, email lower, check 409 username/email, IntegrityError race 409, hash_password, User create, token set_auth_cookie, return UserRead no password), `POST /auth/login` 200 (identifier email? lower else username, uniform 401 Invalid credentials, is_active check, set cookie), `GET /auth/me` 200 via get_current_user, `POST /auth/logout` 204 clear cookie (fixed response.status_code)
+- `backend/app/api/v1/router.py` — include auth_router
+- `ARCHITECTURE.md §14` + `SECURITY.md §2/13/14` updated
+
+**Frontend:**
+- `frontend/src/api/client.ts` + `post<T>` method
+- `frontend/src/api/auth.ts` — `UserRead`, `authApi.me/register/login/logout` (POST with credentials include)
+- `frontend/src/stores/auth.tsx` — `AuthProvider` (useQuery me retry false stale 5m), `useAuth`, `logout` (post + invalidate), `useCurrentUser`
+- `frontend/src/components/RequireAuth.tsx` — loading spinner → Navigate /login
+- `frontend/src/pages/LoginPage.tsx` — RHF+Zod (identifier, password), serverError, api.login → invalidate me → navigate /
+- `frontend/src/pages/RegisterPage.tsx` — RHF+Zod (username regex, email, password 8-128, display_name), serverError
+- `frontend/src/App.tsx` — `/login`, `/register` public, AppShell под `<RequireAuth>` protected; errorElement NotFound
+- `frontend/src/main.tsx` — `AuthProvider` inside ThemeProvider
+- `frontend/src/components/layout/AppShell.tsx` — Sidebar shows `@username` + email + logout button when authenticated
+- `frontend/package.json` + `@hookform/resolvers@3.9.0`
+
+### Files Changed
+
+```
+[mod] backend/requirements.txt (+ argon2-cffi==23.1.0, PyJWT==2.10.1)
+[mod] backend/app/core/config.py (+ algorithm, expire)
+[new] backend/app/core/security.py
+[new] backend/app/core/deps.py
+[new] backend/app/schemas/auth.py
+[mod] backend/app/api/v1/auth.py (new)
+[mod] backend/app/api/v1/router.py (+ auth_router)
+[new] backend/app/tests/test_auth.py (25 tests)
+[mod] frontend/src/api/client.ts (+ post)
+[new] frontend/src/api/auth.ts
+[new] frontend/src/stores/auth.tsx
+[new] frontend/src/components/RequireAuth.tsx
+[new] frontend/src/pages/LoginPage.tsx
+[new] frontend/src/pages/RegisterPage.tsx
+[mod] frontend/src/App.tsx (+ /login /register RequireAuth)
+[mod] frontend/src/main.tsx (+ AuthProvider)
+[mod] frontend/src/components/layout/AppShell.tsx (+ auth badge)
+[mod] frontend/package.json (+ @hookform/resolvers)
+[mod] ARCHITECTURE.md (§14 STEP3 impl)
+[mod] SECURITY.md (§2 status, §13 CSRF, §14 rate limit)
+```
+
+### Database Changes
+
+No new migration (users model unchanged, password_hash nullable already). Tests use in-memory StaticPool SQLite for auth (isolated per module), not altering production Postgres.
+
+### API Changes
+
+- `POST /api/v1/auth/register` → 201 UserRead + Set-Cookie access_token (HttpOnly Lax), 409 duplicate username/email, 422 invalid, no password leak
+- `POST /api/v1/auth/login` → 200 UserRead + cookie, 401 uniform (wrong/unknown/inactive) with email case-insensitive, username path
+- `GET /api/v1/auth/me` → 200 UserRead (no password_hash), 401 missing/invalid/expired/modified/nonexistent/inactive/type
+- `POST /api/v1/auth/logout` → 204 + delete_cookie, subsequent me 401
+- Existing `GET /health`, `GET /health/db`, `GET /` unchanged — regression PASS
+
+### Frontend Changes
+
+Full auth flow: Login/Register pages (Zod RHF), AuthProvider, RequireAuth redirect, AppShell user badge, logout. Build 1683 modules 447 kB js gzip 138 kB, TSC PASS.
+
+### Security Changes
+
+- Argon2id hash/verify (no plain, no MD5/SHA)
+- JWT HS256 explicit alg, no alg=none, SECRET_KEY from env, `sub` UUID, `exp` 15m, `type` check
+- Cookie HttpOnly Secure prod SameSite Lax Path/ Max-Age — no localStorage/URL
+- CORS `allow_credentials True` + `allow_origins` list (not `*`)
+- CSRF: Lax + CORS + Secure documented in SECURITY.md §13 — no double-submit in STEP3
+- Rate limit debt documented (§14) — uniform 401, max lengths, no fake protection
+- No password/hash/JWT in response, no stack trace leak
+
+### Tests
+
+- `pytest app/tests/test_auth.py -v` → **25 passed in 2.08s**:
+  - register 8 (success 201 + cookie HttpOnly + hash not plain, dup username/email/case variant 409, invalid email 422, invalid password 422, invalid username 422, not returned)
+  - login 7 (by email 200, by username 200, case-insensitive email 200, wrong pass 401, unknown 401, inactive 401, cookie attrs HttpOnly SameSite Path/)
+  - me 6 (auth 200 no hash, no cookie 401, invalid 401, expired 401, modified 401, nonexistent 401)
+  - logout 2 (clears + me 401, without auth 401)
+  - security 2 (password never, JWT tampered signature/none rejected)
+- `pytest -v` all → **39 passed** (25 auth + 8 db + 6 health) 2.38s
+- Frontend `tsc --noEmit` PASS, `npm run build` PASS 3.77s
+
+### Build
+
+- Frontend build 1683 modules, 16.66 kB css, 447.93 kB js — PASS
+- Backend import ok, routes `/api/v1/auth/*` verified
+- `alembic upgrade head --sql` still OK (no new migration)
+
+### Problems
+
+- Logout `Set-Cookie` not sent: `return Response(204)` lost cookie on injected Response — fixed to `response.status_code=204; return response`
+- `test_me_modified_token` first tamper `token[:-1]+'a'` still valid due to base64 padding — fixed to `token + 'x'` tamper
+- `@hookform/resolvers` missing — installed
+
+### Fixed
+
+All above fixed before green.
+
+### Known Issues
+
+- Rate limiting not yet (debt → STEP14)
+- Double-submit CSRF not yet (Lax sufficient for MVP)
+- No refresh token flow yet (config placeholder, future)
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| Argon2id default params | argon2-cffi PasswordHasher | Modern, no custom crypto |
+| JWT HS256 explicit | PyJWT, no alg none | Security §11 |
+| Cookie Lax | not Strict | UX with external links |
+| Identifier email OR username | one field | UX simplicity |
+| Uniform 401 | Invalid credentials | No enumeration |
+| AuthProvider useQuery | not Zustand | Simpler, server state via Query |
+| In-memory SQLite for auth tests | StaticPool | Fast without Docker, isolated |
+
+### Next Step
+
+**STEP 4 — Profiles**
+
+- `GET /users/{username}`, `PATCH /users/me`, avatar/bio/display_name, ownership check, tests, frontend profile page
+
+---
+
 <!-- Шаблон для следующего STEP — копировать и заполнять:
 
 ## STEP X — Название

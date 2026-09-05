@@ -5,6 +5,7 @@ import { App } from "./App";
 import "./index.css";
 import "./lib/i18n";
 import { ThemeProvider } from "@/stores/theme";
+import { AuthProvider } from "@/stores/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient({
@@ -22,7 +23,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <App />
+          <AuthProvider>
+            <App />
+          </AuthProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>

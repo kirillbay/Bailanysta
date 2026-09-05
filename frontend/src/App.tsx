@@ -3,10 +3,19 @@ import { AppShell } from "@/components/layout/AppShell";
 import { FeedPage } from "@/pages/FeedPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { LoginPage } from "@/pages/LoginPage";
+import { RegisterPage } from "@/pages/RegisterPage";
+import { RequireAuth } from "@/components/RequireAuth";
 
 const router = createBrowserRouter([
+  { path: "/login", element: <LoginPage /> },
+  { path: "/register", element: <RegisterPage /> },
   {
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     errorElement: <NotFoundPage />,
     children: [
       { path: "/", element: <FeedPage /> },

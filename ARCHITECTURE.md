@@ -362,10 +362,11 @@ backend/
 
 ---
 
-## 14. Следующий шаг
+## 14. STEP 3 Implementation (2026-09-05)
 
-**STEP 1** должен создать реальный runnable scaffold:
-- `backend/app/main.py` + `/health` + `/api/v1/auth/*` (register/login/me)
-- `frontend` Vite scaffold + routing + i18n + theme + auth pages
-- `docker-compose.yml` для Postgres (опционально)
-- Проверка: `backend` стартует, `frontend` билдится, `auth` работает e2e
+**Auth реализован:**
+- Backend: `app/core/security.py` (Argon2id hash/verify, JWT HS256 sub/exp/iat/type, set/clear HttpOnly cookie `access_token` Lax, Secure=prod, max_age 15m), `app/core/config.py` (SECRET_KEY, algorithm, expire), `app/core/deps.py:get_current_user` (cookie→decode→exp→type→DB→is_active→401), `app/api/v1/auth.py` (register 201 + set cookie 409→username/email, login 200 uniform 401 + is_active, me 200, logout 204 clear), `app/schemas/auth.py`, `app/schemas/user.py:UserRead` (no password_hash)
+- Frontend: `api/client.ts` (+post), `api/auth.ts` (me/register/login/logout), `stores/auth.tsx` (useQuery me, AuthProvider, useAuth, logout), `components/RequireAuth.tsx`, `pages/LoginPage.tsx` + `RegisterPage.tsx` (RHF+Zod), `App.tsx` (/login,/register public, AppShell под RequireAuth), `main.tsx` AuthProvider, `components/layout/AppShell.tsx` (user badge + logout)
+- Security: HttpOnly Lax Secure prod, CORS credentials, no JWT in localStorage/URL, uniform Invalid credentials, no stack trace, no password leak
+- Tests: 25 auth tests (см. DEVELOPMENT_LOG), total 39 passed
+- Следующий: **STEP 4 — Profiles**

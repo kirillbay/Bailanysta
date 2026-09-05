@@ -16,7 +16,7 @@ import {
   Monitor,
 } from "lucide-react";
 import { useTheme } from "@/stores/theme";
-import { Button } from "@/components/ui/button";
+import { useAuth } from "@/stores/auth";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -88,6 +88,7 @@ function ThemeSwitcher() {
 
 function Sidebar() {
   const { t } = useTranslation();
+  const { user, logout, isAuthenticated } = useAuth();
   return (
     <aside className="hidden w-[260px] shrink-0 flex-col gap-4 border-r bg-card/50 p-4 lg:flex">
       <div className="flex items-center gap-2.5 px-2 py-2">
@@ -119,6 +120,15 @@ function Sidebar() {
       </nav>
 
       <div className="mt-auto flex flex-col gap-3 pt-4">
+        {isAuthenticated && user && (
+          <div className="rounded-xl border bg-background p-3">
+            <p className="text-xs font-medium truncate">@{user.username}</p>
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            <button onClick={logout} className="mt-2 text-xs font-medium text-foreground underline">
+              Выйти
+            </button>
+          </div>
+        )}
         <LanguageSwitcher />
         <ThemeSwitcher />
         <div className="rounded-xl border bg-background p-3">

@@ -1,6 +1,6 @@
 # Bailanysta — SECURITY
 
-> Дата: 2026-09-05 | STEP 0
+> Дата: 2026-09-05 | STEP 3 — Authentication
 > Этот документ фиксирует security principles и checklist, обязательные с первого дня (MASTER_PROMPT §31-§32).
 
 ---
@@ -17,16 +17,17 @@
 
 ## 2. Authentication & Session (§11)
 
-| Мера | Детали | Статус (STEP 0) |
-|------|--------|-----------------|
-| Password hashing | Argon2id (argon2-cffi), не bcrypt, не plain | Planned |
-| Password policy | min 8, проверка на common passwords (опционально) | Planned |
-| Username/email uniqueness | DB unique constraints + 409 Conflict | Planned |
-| Token storage | HttpOnly + Secure + SameSite=Lax cookies (access 15m, refresh 7d) | Planned |
-| CSRF | SameSite + Origin check + optional double-submit | Planned |
-| Login brute force | Rate limit на `/auth/login` (5/min/IP), счётчик неудач | Planned |
-| Logout | Clear cookies + refresh token revocation (если храним) | Planned |
-| Current user | `GET /auth/me` с dependency `get_current_user` | Planned |
+| Мера | Детали | Статус |
+|------|--------|--------|
+| Password hashing | Argon2id (argon2-cffi `PasswordHasher` default: t=3, m=65536, p=4) | ✅ STEP3 implemented (`app/core/security.py:hash_password`) |
+| Password policy | min 8, max 128, не логировать | ✅ Pydantic Field min 8, max 128 |
+| Username/email uniqueness | DB unique constraints + 409 | ✅ `username`/`email` unique + 409 in `POST /auth/register` |
+| Token storage | HttpOnly + Secure(prod)+SameSite=Lax cookie `access_token` access 15m | ✅ `set_auth_cookie` httponly, secure=is_production, samesite=lax, max_age 15m |
+| CSRF | SameSite=Lax + CORS allow_credentials + конкретные origins (не *) | ✅ STEP3 decision (см. §CSRF) |
+| Login brute force | Rate limit 5/min/IP | ⚠️ Debt — архитектура готова, full rate limiter в STEP14 (см. Abuse Protection) |
+| Logout | Clear cookies (delete_cookie path=/) + 401 после | ✅ `POST /auth/logout` + `clear_auth_cookie` |
+| Current user | `GET /auth/me` via `get_current_user` (cookie → JWT verify → DB → is_active) | ✅ `app/core/deps.py:get_current_user` |
+| JWT | HS256, explicit algorithm, sub+exp+iat+type, SECRET_KEY from env, no alg=none | ✅ `app/core/security.py: create_access_token / decode_token` |
 
 **Нельзя:** хранить пароли в открытом виде, хранить токены в localStorage без причины, отдавать хеш клиенту.
 
@@ -135,7 +136,38 @@
 
 ## 12. Roadmap
 
-- STEP 1: Argon2id, JWT cookies, CORS, базовые headers
-- STEP 2: Authorization на posts/comments, upload validation
-- STEP 3: Rate limiting, pagination limits, IDOR тесты
-- STEP 4+: WS auth, club permissions, security headers audit
+- STEP 1: Argon2id, JWT cookies, CORS, базовые headers ✅ done
+- STEP 2: DB + User model + Alembic ✅ done
+- STEP 3: Authentication full (Argon2id, JWT HttpOnly, register/login/me/logout) ✅ done
+- STEP 4: Profiles editor
+- STEP 14: Rate limiting (full), pagination limits, IDOR hardening
+- STEP 14+: WS auth, club permissions, security headers audit
+
+## 13. STEP 3 — CSRF Decision
+
+Хранится в HttpOnly cookie `access_token`, поэтому классический CSRF возможен.
+
+Принято (STEP3, без over-engineering):
+- `SameSite=Lax` (default) — блокирует cross-site POST с других доменов, но разрешает top-level navigation
+- `CORS` — `allow_credentials=True`, `allow_origins` из `CORS_ORIGINS` env (не `*`), конкретные домены `http://localhost:5173` в dev, прод домены configurable
+- `Secure` — `true` в `production` (HTTPS), `false` в dev для localhost
+- `HttpOnly` — `true` всегда, JS не читает токен (XSS mitigation)
+- `Path=/`, `Max-Age=900` (15m)
+
+Не делается в STEP3:
+- Double-submit CSRF token (требует фронтенд state + extra endpoint, добавим если будет cross-site deployment с сторонними origins)
+- `SameSite=Strict` — ломает UX при переходах с внешних ссылок
+
+Документировано здесь; `ARCHITECTURE.md §6` дублирует flow.
+
+## 14. STEP 3 — Abuse / Rate Limit Status
+
+Auth endpoints чувствительны (brute-force).
+
+STEP3 — базовая защита без внешней инфраструктуры:
+- Uniform `401 Invalid credentials` (не раскрывает существование email/username)
+- Password не логируется, не возвращается
+- 409 на duplicate (не 500)
+- Validation max lengths (username 50, password 128) — reject huge payloads
+
+Full rate limiting (5/min/IP на login, счётчик неудач, slowapi/redis) — отложено в STEP14 как **security debt**, т.к. требует инфраструктуры (Redis / in-memory store) и не должно блокировать auth foundation. Архитектура готова: middleware место зарезервировано в `app/main.py`, `SECURITY.md §8`.
