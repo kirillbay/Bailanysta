@@ -843,6 +843,137 @@ All fixed before green.
 
 ---
 
+## STEP 6 — Feed & Social Interactions
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Сделать из списка постов настоящую социальную ленту (global feed) и добавить базовые взаимодействия: likes, comments, reposts, bookmarks, optimistic UI, loading/empty/error.
+
+### Implemented
+
+**Backend:**
+- `backend/app/models/social.py` — `PostLike` (UUID PK, post/user FK CASCADE, Unique post+user, indexes), `Comment` (UUID PK, post FK CASCADE, author FK CASCADE, content Text, created/updated, author joined, index post+created), `PostRepost` (UUID PK, post/user CASCADE Unique), `Bookmark` (UUID PK, post/user CASCADE Unique, index user+created)
+- `backend/app/models/__init__.py` + social exports
+- `backend/alembic/versions/003_create_social.py` — post_likes, comments, post_reposts, bookmarks — `--sql` verified
+- `backend/app/schemas/post.py` + `likes_count, comments_count, reposts_count, liked_by_me, reposted_by_me, bookmarked_by_me`
+- `backend/app/schemas/comment.py` — AuthorPublic, CommentRead, Create 1-2000, Update 1-2000
+- `backend/app/api/v1/posts.py` enriched `_enrich_many` bulk counts (func.count group_by + sets liked/reposted/bookmarked), `_get_current_user_optional`, `GET /posts/{id}` public optional auth, `GET /posts/by/user` enriched, `PATCH/DELETE` enriched, `POST/DELETE /posts/{id}/like|repost|bookmark` (auth, 404, idempotent Already liked/detail, 204 unlike), `POST /posts/{id}/bookmark` etc
+- `backend/app/api/v1/feed.py` — `GET /feed` auth `created_at DESC` limit50 offset, _enrich bulk
+- `backend/app/api/v1/comments.py` — `GET /posts/{id}/comments` public pagination 50, `POST /posts/{id}/comments` auth 201, `PATCH /comments/{id}` owner 403, `DELETE` owner, content 1-2000
+- `backend/app/api/v1/bookmarks.py` — `GET /bookmarks` auth user_created desc, enrich, preserves bookmark order
+- `backend/app/api/v1/users.py` — `GET /users/{username}/posts` enriched counts (bulk), `router.py` includes feed/comments/bookmarks
+- Tests `app/tests/test_social.py` 24 passed (feed 4, likes 5, comments 8, reposts 3, bookmarks 4)
+
+**Frontend:**
+- `frontend/src/api/posts.ts` + like/unlike/repost/unrepost/bookmark/unbookmark, `api/feed.ts`, `api/comments.ts`, `api/bookmarks.ts`
+- `frontend/src/components/PostCard.tsx` — interaction bar (Heart red fill, MessageCircle, Repeat2 green, Bookmark blue fill, Share2 copy), optimistic toggle with rollback + invalidate feed/bookmarks, edit/delete, CommentSection (list, create, edit/delete own), withComments prop, counts from PostRead
+- `frontend/src/pages/FeedPage.tsx` — global feed `feedApi.get` offset, allPosts accumulation, skeleton/empty/error, load more, composer invalidate feed
+- `frontend/src/pages/PostDetailPage.tsx` — withComments true, skeleton/404, PostCard
+- `frontend/src/pages/BookmarksPage.tsx` — `bookmarksApi.list`, empty state, PostCard
+- `frontend/src/App.tsx` — `/bookmarks` protected
+
+### Files Changed
+
+```
+[new] backend/app/models/social.py
+[mod] backend/app/models/__init__.py (+ social)
+[new] backend/alembic/versions/003_create_social.py
+[mod] backend/app/schemas/post.py (+ counts)
+[new] backend/app/schemas/comment.py
+[mod] backend/app/api/v1/posts.py (enriched + like/repost/bookmark)
+[new] backend/app/api/v1/feed.py
+[new] backend/app/api/v1/comments.py
+[new] backend/app/api/v1/bookmarks.py
+[mod] backend/app/api/v1/users.py (enriched)
+[mod] backend/app/api/v1/router.py (+ feed/comments/bookmarks)
+[new] backend/app/tests/test_social.py (24 tests)
+[mod] frontend/src/api/posts.ts (+ like/repost/bookmark)
+[new] frontend/src/api/feed.ts
+[new] frontend/src/api/comments.ts
+[new] frontend/src/api/bookmarks.ts
+[mod] frontend/src/components/PostCard.tsx (interaction bar + comments + optimistic)
+[new] frontend/src/pages/BookmarksPage.tsx
+[mod] frontend/src/pages/FeedPage.tsx (global feed)
+[mod] frontend/src/pages/PostDetailPage.tsx (withComments)
+[mod] frontend/src/App.tsx (+ /bookmarks)
+```
+
+### Database Changes
+
+- Migration `003_create_social` — post_likes, comments, post_reposts, bookmarks — `--sql` OK, FK CASCADE, Unique, indexes
+
+### API Changes
+
+- `GET /api/v1/feed?limit&offset` → 200 global feed DESC with counts/liked/bookmarked, 401 unauth
+- `POST /api/v1/posts/{id}/like` 201, `DELETE` 204 idempotent, `GET /posts/{id}` now with counts/liked
+- `POST /api/v1/posts/{id}/repost` 201, `DELETE` 204, counts
+- `POST /api/v1/posts/{id}/bookmark` 201, `DELETE` 204, `GET /api/v1/bookmarks` auth only own
+- `GET /api/v1/posts/{id}/comments?limit&offset` public, `POST` auth 201, `PATCH /comments/{id}` owner 403, `DELETE` owner
+
+### Frontend Changes
+
+Feed global + load more, PostCard interactions optimistic with rollback, Bookmarks page, PostDetail comments, Share copy link, TanStack Query feed/post/bookmarks/comments invalidation.
+
+### Security Changes
+
+- All mutations require get_current_user (401), IDOR checks for comment edit/delete (author_id), like/repost/bookmark isolated per user (Unique prevents duplicate), no HTML (text), XSS safe, empty/too long 422, malformed UUID 422, nonexist 404
+
+### Tests
+
+- `pytest app/tests/test_social.py -v` → **24 passed in 4.19s**:
+  - feed 4 (auth, pagination 2+2, empty, requires auth)
+  - likes 5 (like/unlike counts + flags, duplicate idempotent, unauth 401, nonexist 404, isolation)
+  - comments 8 (create/read, update own, delete own, cannot update other 403, empty 422, too long 422, unauth 401, nonexist 404)
+  - reposts 3 (repost/unrepost + counts, duplicate, unauth)
+  - bookmarks 4 (bookmark/remove + flags + GET /bookmarks, duplicate, isolation, unauth)
+- `pytest -v` all → **110 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social)
+- Frontend `tsc --noEmit` PASS, `npm run build` 1692 modules 469.60kB js gzip 144.19kB
+
+### Build
+
+- Frontend 3.61s, 16.45kB css
+- Backend import ok, routes verified, `alembic upgrade head --sql` all 3 migrations OK
+
+### Problems
+
+- `users.py` imported `_post_to_read` removed after enrichment — fixed to bulk enrich locally
+- Initial posts `GET /posts/{id}` not enriched (no counts) — fixed to `_enrich_single` with optional auth
+- Feed `allPosts` accumulation with offset re-fetch caused duplication without `offset` state reset — fixed to offset state + setAllPosts
+- PostCard optimistic rollback needed explicit wasLiked capture — fixed
+
+### Fixed
+
+All fixed before green.
+
+### Known Issues
+
+- Feed is global chronological, no personalization
+- Comments flat only, no pagination load more beyond 20 fixed
+- Bookmarks pagination fixed 20
+- No markdown
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| Bulk counts via group_by | not N+1 | Spec §6 performance |
+| Optimistic like/bookmark with rollback | useState optimistic + fetch catch rollback | Spec §2/9 UX safe |
+| Unique post+user | idempotent Already liked | Spec §2/4/5 |
+| Flat comments 1-2000 | no nested | Spec §3 MVP |
+| Migration 003 separate | not rewrite old | Spec §10 |
+
+### Next Step
+
+**STEP 7 — Follow / Search / Hashtags**
+
+- Follow model, search users/posts/hashtags, hashtag search via existing tables
+
+---
+
 <!-- Шаблон для следующего STEP — копировать и заполнять:
 
 ## STEP X — Название

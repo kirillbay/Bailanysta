@@ -11,6 +11,12 @@ export type PostRead = {
   author: Author;
   media: PostMedia[];
   hashtags: string[];
+  likes_count: number;
+  comments_count: number;
+  reposts_count: number;
+  liked_by_me: boolean;
+  reposted_by_me: boolean;
+  bookmarked_by_me: boolean;
 };
 
 export const postsApi = {
@@ -38,6 +44,57 @@ export const postsApi = {
   remove(id: string): Promise<void> {
     return fetch(`${API_URL}/api/v1/posts/${id}`, { method: "DELETE", credentials: "include" }).then(async (r) => {
       if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data.detail || r.statusText);
+      }
+    });
+  },
+  like(id: string) {
+    return fetch(`${API_URL}/api/v1/posts/${id}/like`, { method: "POST", credentials: "include" }).then(async (r) => {
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data.detail || r.statusText);
+      }
+      return r.json().catch(() => ({}));
+    });
+  },
+  unlike(id: string) {
+    return fetch(`${API_URL}/api/v1/posts/${id}/like`, { method: "DELETE", credentials: "include" }).then(async (r) => {
+      if (!r.ok && r.status !== 204) {
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data.detail || r.statusText);
+      }
+    });
+  },
+  repost(id: string) {
+    return fetch(`${API_URL}/api/v1/posts/${id}/repost`, { method: "POST", credentials: "include" }).then(async (r) => {
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data.detail || r.statusText);
+      }
+      return r.json().catch(() => ({}));
+    });
+  },
+  unrepost(id: string) {
+    return fetch(`${API_URL}/api/v1/posts/${id}/repost`, { method: "DELETE", credentials: "include" }).then(async (r) => {
+      if (!r.ok && r.status !== 204) {
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data.detail || r.statusText);
+      }
+    });
+  },
+  bookmark(id: string) {
+    return fetch(`${API_URL}/api/v1/posts/${id}/bookmark`, { method: "POST", credentials: "include" }).then(async (r) => {
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data.detail || r.statusText);
+      }
+      return r.json().catch(() => ({}));
+    });
+  },
+  unbookmark(id: string) {
+    return fetch(`${API_URL}/api/v1/posts/${id}/bookmark`, { method: "DELETE", credentials: "include" }).then(async (r) => {
+      if (!r.ok && r.status !== 204) {
         const data = await r.json().catch(() => ({}));
         throw new Error(data.detail || r.statusText);
       }

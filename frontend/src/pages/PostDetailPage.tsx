@@ -32,7 +32,7 @@ export function PostDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <PostCard post={query.data!} />
+      <PostCard post={query.data!} withComments={true} onUpdated={() => query.refetch()} />
     </div>
   );
 }

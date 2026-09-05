@@ -28,6 +28,12 @@ class PostRead(BaseModel):
     author: AuthorPublic
     media: list[PostMediaRead] = []
     hashtags: list[str] = []
+    likes_count: int = 0
+    comments_count: int = 0
+    reposts_count: int = 0
+    liked_by_me: bool = False
+    reposted_by_me: bool = False
+    bookmarked_by_me: bool = False
 
 class PostCreateInput(BaseModel):
     content: str = Field(min_length=1, max_length=10000)
