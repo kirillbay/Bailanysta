@@ -6,11 +6,15 @@ import { feedApi } from "@/api/feed";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { StoryBar } from "@/components/StoryBar";
+import { StoryViewer } from "@/components/StoryViewer";
+import { StoryGroup } from "@/api/stories";
 
 export function FeedPage() {
   const [offset, setOffset] = useState(0);
   const limit = 20;
   const [allPosts, setAllPosts] = useState<any[]>([]);
+  const [viewer, setViewer] = useState<{ group: StoryGroup; idx: number } | null>(null);
 
   const query = useQuery({
     queryKey: ["feed", offset],
@@ -30,6 +34,9 @@ export function FeedPage() {
         <h1 className="text-xl font-bold">Лента</h1>
         <p className="text-sm text-muted-foreground">Что происходит в IT-сообществе — глобальная лента по времени.</p>
       </div>
+
+      <StoryBar onSelect={(group, idx) => setViewer({ group, idx })} />
+      {viewer && <StoryViewer group={viewer.group} startIdx={viewer.idx} onClose={() => setViewer(null)} />}
 
       <PostComposer onCreated={() => { setOffset(0); query.refetch(); }} />
 

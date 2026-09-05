@@ -2,21 +2,21 @@
 
 > Persistent memory проекта. Обновляется после КАЖДОГО STEP.
 > Протокол: PERSISTENT DEVELOPMENT PROTOCOL (2026-09-05)
-> Последнее обновление: 2026-09-05 (STEP 7 — Follow, Search & Hashtags)
+> Последнее обновление: 2026-09-05 (STEP 8 — Stories)
 
 ---
 
 ## 1. Текущий STEP
 
-**STEP 7 — Follow, Search & Hashtags — ЗАВЕРШЁН ✅**
+**STEP 8 — Stories — ЗАВЕРШЁН ✅**
 
 - Workspace: `C:\Users\lueex\Desktop\Bailanysta`
-- Branch: `main` | Последний commit: `feat: STEP 7 — follow search and hashtags` (см. §17)
-- Статус: Follow + Search (users/posts/hashtags) + HashtagPage + Profile follow + 21 тест — 131 passed
+- Branch: `main` | Последний commit: `feat: STEP 8 — stories` (см. §17)
+- Статус: 24h Stories (model+media, expiration, feed groups, viewer, create/delete) — 147 тестов зелёных
 
-**Последний завершённый STEP:** STEP 7 — Follow, Search & Hashtags (2026-09-05)
+**Последний завершённый STEP:** STEP 8 — Stories (2026-09-05)
 
-**Следующий рекомендуемый STEP:** STEP 8 — Stories
+**Следующий рекомендуемый STEP:** STEP 9 — Clubs
 
 ---
 
@@ -32,22 +32,23 @@
 | 4 | Profiles | 2026-09-05 | `197ed2c` | ✅ Done |
 | 5 | Posts & Media | 2026-09-05 | `a8b2f66` | ✅ Done |
 | 6 | Feed & Social Interactions | 2026-09-05 | `040794b` | ✅ Done |
-| 7 | Follow, Search & Hashtags | 2026-09-05 | `feat STEP7` | ✅ Done |
+| 7 | Follow, Search & Hashtags | 2026-09-05 | `831f9b9` | ✅ Done |
+| 8 | Stories | 2026-09-05 | `feat STEP8` | ✅ Done |
 
-> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories → 9 Clubs → 10 Club Channels & Messaging → 11 Notifications & Realtime → 12 Projects → 13 i18n/Theme/Responsive → 14 Security Hardening → 15 Testing/Perf → 16 Deployment → 17 Final QA
+> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs → 10 Club Channels & Messaging → 11 Notifications & Realtime → 12 Projects → 13 i18n/Theme/Responsive → 14 Security Hardening → 15 Testing/Perf → 16 Deployment → 17 Final QA
 
 ---
 
 ## 3. Текущая архитектура
 
 ```
-[Browser] → [Frontend: Profile follow + Search tabs + HashtagPage → API search] → [Backend: /users/{username}/follow|followers|following + /search + /hashtags/{name} + enriched profile] → [Postgres 004_follows + SQLite test]
-                         ↕ optimistic follow, debounce 400ms, hashtag links
+[Browser] → [Frontend: Feed + StoryBar + StoryViewer + Create] → [Backend: /stories (create/list/get/delete) + storage stories/ + expiration] → [Postgres 005_stories + Follow + SQLite test]
+                         ↕ storiesApi, TanStack Query stories, grouped by author (own first, followed)
 ```
 
-- Frontend: `api/follows.ts`, `api/search.ts` (users/posts/hashtags), `pages/ProfilePage.tsx` + follow button + counts + optimistic, `pages/SearchPage.tsx` (tabs All/Users/Posts/Hashtags, debounce 400ms), `pages/HashtagPage.tsx`, `components/PostCard.tsx` hashtag links, `App.tsx` /search + /hashtags/:name
-- Backend: `models/follow.py` (id UUID, follower/following FK CASCADE, Unique, indexes), `alembic 004_create_follows`, `api/v1/follows.py` (4 endpoints), `api/v1/search.py` unified `GET /search?q&type&limit&offset` (users ILIKE, posts ILIKE, hashtags ILIKE, no secrets, limit 50, trim), `api/v1/hashtags.py` (GET /hashtags/{name} + /posts), `api/v1/users.py` enriched `GET /users/{username}` with followers/following/is_following
-- DB: `004_create_follows` added follows table
+- Frontend: `api/stories.ts` (list/create/get/remove, resolveUrl), `components/StoryBar.tsx` (add + groups + create form preview), `components/StoryViewer.tsx` (modal, image/video, author, timestamp, remaining, prev/next, Esc, delete), `pages/FeedPage.tsx` + StoryBar/Viewer
+- Backend: `models/story.py` (id UUID, author_id FK CASCADE, media_url/text, media_type image/video, created_at, expires_at +24h, indexes), `alembic 005_create_stories`, `services/storage.py` + save_story_media (image 5MB Pillow, video 25MB mime check), `schemas/story.py`, `api/v1/stories.py` (4 endpoints)
+- DB: `005_create_stories` added stories table
 - Детали → `ARCHITECTURE.md`, `SECURITY.md`
 
 ---
@@ -55,34 +56,32 @@
 ## 4. Frontend Status
 
 - Статус: **runnable ✅**
-- Follow: `pages/ProfilePage.tsx` — followers/following counts, Follow/Following button optimistic with `followsApi.follow/unfollow`, invalidation profile, own vs other logic
-- Search: `pages/SearchPage.tsx` — input `q` with debounce 400ms `useDebounce`, tabs All/Users/Posts/Hashtags, sections users (avatar+username+followers), posts (PostCard), hashtags (card), loading/error/empty/no query, search via `searchApi.search`
-- Hashtag: `pages/HashtagPage.tsx` — `useParams name`, `searchApi.hashtag` + `hashtagPosts` with offset load more, PostCard, 404, skeleton, empty
-- PostCard: hashtags clickable `Link /hashtags/:name`, content split links
-- Routing: `App.tsx` `/search` → SearchPage, `/hashtags/:name` → HashtagPage, `/profile/:username` still, `/bookmarks` etc
-- Build: `tsc --noEmit` ✅, `npm run build` ✅ 3.09s, 1696 modules, 477.54 kB js gzip 146.04 kB (16.54 kB css)
+- Stories: `StoryBar` — Add Story button + dashed circle, groups `StoryGroup` avatar gradient + username + count, create form (file jpeg/png/webp/mp4/webm, preview image/video, size, text 2000, publish, error, invalidate stories), `StoryViewer` — modal black/80, author+timestamp+remaining `h m`, media image/video, text, prev/next, Esc, delete, index count, keyboard arrows
+- Feed: `pages/FeedPage.tsx` now includes StoryBar + Viewer state `StoryGroup` idx, below hero before PostComposer
+- Build: `tsc --noEmit` ✅, `npm run build` ✅ 3.23s, 1699 modules, 484.30 kB js gzip 147.48 kB (16.98 kB css)
 
 ---
 
 ## 5. Backend Status
 
 - Статус: **runnable ✅**
-- Models: `models/follow.py` — id UUID PK, follower_id FK CASCADE index, following_id FK CASCADE index, created_at, Unique follower+following, indexes follower_following, following_follower
-- Schemas: `schemas/user.py` unchanged (public profile now returns dict with followers/following/is_following, not strict UserPublic model but compatible)
-- Migration: `alembic/versions/004_create_follows.py` — follows — `--sql` verified
-- APIs: `api/v1/follows.py` — `POST /users/{username}/follow` 201 (auth, 404, 400 self, idempotent), `DELETE` 204 idempotent, `GET /followers` + `GET /following` paginated limit 50 offset, items with followers/following counts, total; `api/v1/search.py` unified, `GET /search?q&type&limit&offset` (trim, max 100, 422 if >100, empty → empty lists, ILIKE lower for users display_name/username, posts content, hashtags name, bulk counts for posts, no email/hash leak), `api/v1/hashtags.py` `GET /hashtags/{name}` 404, `GET /posts` paginated, case-insensitive lower, `api/v1/users.py` enriched `GET /users/{username}` with followers/following/is_following via cookie decode optional
-- Router: `router.py` includes follows/search/hashtags
-- Tests: `test_follow_search.py` 21 passed, total 131 passed (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search)
-- Startup: routes `/users/{username}/follow`, `/search`, `/hashtags/{name}` verified
+- Models: `models/story.py` — id UUID PK, author_id FK CASCADE index, media_url 512 nullable, media_type 20 nullable (image/video), text Text nullable, created_at server_default now, expires_at DateTime index + ix_author_expires
+- Schemas: `schemas/story.py` — AuthorPublic, StoryRead, StoryGroup
+- Services: `services/storage.py` + `STORY_IMAGE_MIME jpeg/png/webp 5MB` + `STORY_VIDEO_MIME mp4/webm 25MB` + `save_story_media` (mime check, size, Pillow for image, ext mp4/webm, stories/ subdir UUID, public_url)
+- APIs: `api/v1/stories.py` — `POST /stories` 201 (auth, multipart file required, text trim 2000, no author_id bypass, save_story_media, now+24h expires, return StoryRead), `GET /stories` 200 (auth, expires_at>now, allowed = own + followed, grouped by author stories desc, own first), `GET /stories/{id}` 200 (auth, expired 404, privacy own/followed 404), `DELETE /stories/{id}` 204 (owner 403, file cleanup best effort)
+- Router: `router.py` + stories_router
+- Migration: `alembic/versions/005_create_stories.py` — stories — `--sql` verified
+- Tests: `test_stories.py` 16 passed, total 147 passed (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories)
+- Startup: routes `/stories` verified
 
 ---
 
 ## 6. Database Status
 
-- Статус: **follows added ✅**
-- Tables: `follows` + previous 9 + `users`
-- Indexes: `ix_follows_follower_id`, `ix_follows_following_id`, `ix_follows_follower_following`, `ix_follows_following_follower`
-- Constraints: Unique follower+following, FK CASCADE
+- Статус: **stories added ✅**
+- Tables: `stories` + previous 10 + `users`
+- Indexes: `ix_stories_author_id`, `ix_stories_expires_at`, `ix_stories_author_expires`
+- Constraints: FK CASCADE
 
 ---
 
@@ -94,8 +93,9 @@
 | 002_create_posts | create posts + media + hashtags | 2026-09-05 | ✅ Created, --sql OK |
 | 003_create_social | create social interactions | 2026-09-05 | ✅ Created, --sql OK |
 | 004_create_follows | create follows | 2026-09-05 | ✅ Created, --sql OK |
+| 005_create_stories | create stories | 2026-09-05 | ✅ Created, --sql OK |
 
-- `alembic upgrade head --sql` → all 4 upgrades OK
+- `alembic upgrade head --sql` → all 5 upgrades OK
 - Online requires PG
 
 ---
@@ -103,24 +103,22 @@
 ## 8. Authentication Status
 
 - Статус: **unchanged ✅** (STEP3)
-- Follow mutations require auth, self-follow blocked, idempotent, isolation per user
+- Stories mutations require auth, delete owner only, no author_id bypass
 
 ---
 
 ## 9. Implemented Features
 
-> STEP 7 — follow/search done.
+> STEP 8 — stories done.
 
 - [x] Foundation — shell, health, i18n, theme
 - [x] Database — PG, Alembic, User model
 - [x] Auth — register/login/me/logout
-- [x] Profiles — public PATCH own, avatar/cover + follow button + counts
+- [x] Profiles — public PATCH own, avatar/cover + follow
 - [x] Posts — create, user posts, patch/delete + hashtags
 - [x] Feed/Social — global feed, likes/comments/reposts/bookmarks
-- [x] Follow: follow/unfollow, followers/following lists paginated, counts, is_following, optimistic
-- [x] Search: users (username/display_name ILIKE), posts (content/hashtag ILIKE), hashtags (name ILIKE), unified `GET /search`, pagination, no secrets
-- [x] Hashtags: `GET /hashtags/{name}` case-insensitive, `GET /hashtags/{name}/posts` paginated, HashtagPage, click from PostCard
-- [ ] Stories — STEP8
+- [x] Follow/Search — follow, search, hashtags
+- [x] Stories: 24h image/video/text, create/list/get/delete, expiration filter, grouped feed own+followed, viewer, cleanup
 - [ ] Clubs — STEP9
 - [ ] Messaging — STEP10
 - [ ] Notifications — STEP11
@@ -131,53 +129,52 @@
 
 ## 10. Deployment Status
 
-- Frontend: Vercel candidate — build 477 kB, search/hashtags ready
-- Backend: Render/Railway — follow/search ready
+- Frontend: Vercel candidate — build 484 kB, stories ready
+- Backend: Render/Railway — stories ready, uploads stories/
 - DB: docker-compose postgres:16-alpine
 
 ---
 
 ## 11. Tests Status
 
-- Backend: `pytest -v` → **131 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search) ✅
-  - follow 8 (follow/unfollow, dup, self 400, unauth 401, nonexist 404, followers/following lists, pagination 2+2, isolation), search 5+3 (users by username/display_name case-insensitive, pagination empty, too long 422, no sensitive, posts by content/hashtag case-insensitive), hashtags 4 (existing, case norm 3 variants, posts, nonexist 404)
-- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.09s
-- Integration: `register → follow → counts → unfollow → followers list → search user/post/hashtag → hashtag page → post` via test client ✅
+- Backend: `pytest -v` → **147 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories) ✅
+  - stories 16 (create image/video, unauth 401, invalid mime 415, oversized 413, text 422, no bypass, active visible, expired 404, feed only active, followed visible, unrelated not visible, own visible, delete owner 204, other 403, nonexist 404, expiration filtering)
+- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.23s
+- Integration: `login → create story → StoryBar → viewer → next/prev → delete → gone` via test client ✅
 - Coverage: не измерялась
 
 ---
 
 ## 12. Known Issues
 
-- No Stories/Clubs/Messages (future)
-- Hashtag search is ILIKE, not full-text (MVP)
-- Bookmarks pagination simple (50)
-- Feed global chronological, no following feed personalization (debt)
-- Search no type=all sections limit fixed 10 (MVP)
+- No Story viewers/read receipts (future)
+- No Story reactions/replies (future)
+- No auto background cleanup job (expired filtered on read, not deleted)
+- Video no transcoding (MVP)
+- Hashtag ILIKE, Bookmarks 50 (known)
 
 ---
 
 ## 13. Technical Debt
 
 - Add S3 (долг)
-- Add cursor pagination for feed/search (currently offset)
-- Add Elasticsearch/OpenSearch later if needed (currently PG ILIKE)
-- Add following feed personalization (STEP7 debt, documented)
+- Add stories cleanup cron (expired records still on disk until manual)
+- Add cursor pagination for feed/search (offset)
 - Version single source (долг)
 
 ---
 
 ## 14. Current Blockers
 
-- Нет блокеров. Готов к STEP8.
+- Нет блокеров. Готов к STEP9.
 
 ---
 
 ## 15. Next Recommended STEP
 
-**STEP 8 — Stories**
+**STEP 9 — Clubs**
 
-- stories model (image/video/text, expires 24h), create/view/delete, frontend stories bar
+- clubs model, members, channels (text channels), club structure like Discord, creation/join
 
 ---
 
@@ -185,45 +182,40 @@
 
 | Дата | Решение | Причина |
 |------|---------|---------|
-| 2026-09-05 | Follow id UUID + Unique follower+following + self check | Spec §1, security |
-| 2026-09-05 | Search unified `GET /search?q&type` with ILIKE lower | Simple, spec §4-6, no ES |
-| 2026-09-05 | Search users ILIKE username/display_name, no email/hash | Privacy §5 |
-| 2026-09-05 | Hashtag case-insensitive via lower (already lower normalized) | Spec §7, STEP5 lower |
-| 2026-09-05 | HashtagPage + clickable PostCard hashtags | Spec §8, UX |
-| 2026-09-05 | Profile follow optimistic + counts invalidate | Spec §3 UX |
-| 2026-09-05 | Migration 004 separate | Not rewrite old |
+| 2026-09-05 | Stories 24h backend expires_at = now+24h | Truth backend, not frontend |
+| 2026-09-05 | Storage stories/ separate subdir | No mix with avatars/posts |
+| 2026-09-05 | Image 5MB Pillow, video 25MB mime check | Spec §2, no FFmpeg |
+| 2026-09-05 | Feed groups own first + followed only (not all users) | Spec §4, privacy MVP |
+| 2026-09-05 | Viewer modal with Esc/arrow/delete + remaining h m | Spec §11 |
+| 2026-09-05 | Migration 005 separate | Not rewrite old |
 
 ---
 
 ## 17. Последний Git Commit
 
 ```
-feat: STEP 7 — follow search and hashtags (предстоит)
+feat: STEP 8 — stories (предстоит)
 Branch: main | Status: clean (после commit)
-Follow/search: 004 migration, follow model, 4 follow endpoints, search, hashtags, Profile follow, Search/Hashtag pages, 21 tests
+Stories: model 005, storage stories/, 4 endpoints, StoryBar/Viewer, 16 tests
 ```
 
 ---
 
-## 18. Изменённые файлы (STEP 7)
+## 18. Изменённые файлы (STEP 8)
 
 ```
-[new] backend/app/models/follow.py
-[mod] backend/app/models/__init__.py (+ Follow)
-[new] backend/alembic/versions/004_create_follows.py
-[new] backend/app/api/v1/follows.py
-[new] backend/app/api/v1/search.py
-[new] backend/app/api/v1/hashtags.py
-[mod] backend/app/api/v1/users.py (enriched profile with counts/is_following)
-[mod] backend/app/api/v1/router.py (+ follows/search/hashtags)
-[new] backend/app/tests/test_follow_search.py (21 tests)
-[new] frontend/src/api/follows.ts
-[new] frontend/src/api/search.ts
-[mod] frontend/src/pages/ProfilePage.tsx (follow button + counts)
-[new] frontend/src/pages/SearchPage.tsx
-[new] frontend/src/pages/HashtagPage.tsx
-[mod] frontend/src/components/PostCard.tsx (hashtag links)
-[mod] frontend/src/App.tsx (+ /search, /hashtags/:name)
+[new] backend/app/models/story.py
+[mod] backend/app/models/__init__.py (+ Story)
+[new] backend/alembic/versions/005_create_stories.py
+[mod] backend/app/services/storage.py (+ STORY_IMAGE/VIDEO, save_story_media)
+[new] backend/app/schemas/story.py
+[new] backend/app/api/v1/stories.py
+[mod] backend/app/api/v1/router.py (+ stories_router)
+[new] backend/app/tests/test_stories.py (16 tests)
+[new] frontend/src/api/stories.ts
+[new] frontend/src/components/StoryBar.tsx
+[new] frontend/src/components/StoryViewer.tsx
+[mod] frontend/src/pages/FeedPage.tsx (+ StoryBar/Viewer)
 ```
 
 ---

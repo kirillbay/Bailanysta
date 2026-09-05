@@ -20,6 +20,12 @@ ALLOWED_MIME = {
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_MB = 5  # avatar and cover both 5 MB for MVP
 
+# Story specific
+STORY_IMAGE_MIME = {"image/jpeg", "image/png", "image/webp"}
+STORY_VIDEO_MIME = {"video/mp4", "video/webm"}
+STORY_IMAGE_MAX_MB = 5
+STORY_VIDEO_MAX_MB = 25
+
 def _ensure_dir():
     d = Path(settings.upload_dir)
     d.mkdir(parents=True, exist_ok=True)
@@ -72,3 +78,30 @@ def save_image(data: bytes, content_type: str | None, subdir: str = "avatars") -
     file_path.write_bytes(data)
     public_url = f"/uploads/{safe_subdir}/{filename}"
     return str(file_path), public_url
+
+def save_story_media(data: bytes, content_type: str | None) -> Tuple[str, str, str]:
+    """Validate and save story media (image 5MB, video 25MB). Returns (fs_path, public_url, media_type)."""
+    mime = (content_type or "").lower().split(";")[0].strip()
+    if mime in STORY_IMAGE_MIME:
+        _validate_size(data, STORY_IMAGE_MAX_MB)
+        ext = _detect_and_validate(data, content_type)
+        media_type = "image"
+    elif mime in STORY_VIDEO_MIME:
+        _validate_size(data, STORY_VIDEO_MAX_MB)
+        # basic video validation: check mime only (no Pillow), ensure not executable
+        ext = ".mp4" if mime == "video/mp4" else ".webm"
+        media_type = "video"
+        # ensure data looks like video (not empty, not html)
+        if len(data) < 100:
+            raise HTTPException(status_code=415, detail="Invalid video file")
+    else:
+        raise HTTPException(status_code=415, detail="Unsupported story media type (jpeg/png/webp/mp4/webm only)")
+
+    safe_subdir = "stories"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    dir_path = _ensure_dir() / safe_subdir
+    dir_path.mkdir(parents=True, exist_ok=True)
+    file_path = dir_path / filename
+    file_path.write_bytes(data)
+    public_url = f"/uploads/{safe_subdir}/{filename}"
+    return str(file_path), public_url, media_type

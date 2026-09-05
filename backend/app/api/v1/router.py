@@ -9,6 +9,7 @@ from app.api.v1.bookmarks import router as bookmarks_router
 from app.api.v1.follows import router as follows_router
 from app.api.v1.search import router as search_router
 from app.api.v1.hashtags import router as hashtags_router
+from app.api.v1.stories import router as stories_router
 
 api_router = APIRouter()
 
@@ -22,3 +23,4 @@ api_router.include_router(bookmarks_router, tags=["bookmarks"])
 api_router.include_router(follows_router, tags=["follows"])
 api_router.include_router(search_router, tags=["search"])
 api_router.include_router(hashtags_router, tags=["hashtags"])
+api_router.include_router(stories_router, tags=["stories"])

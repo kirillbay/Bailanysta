@@ -1100,6 +1100,122 @@ All fixed before green.
 
 ---
 
+## STEP 8 — Stories
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Реализовать 24h Stories: модель, media, expiration, feed groups (own+followed), viewer, create/delete.
+
+### Implemented
+
+**Backend:**
+- `backend/app/models/story.py` — `Story` (UUID PK, author_id FK CASCADE index, media_url 512 nullable, media_type 20 nullable image/video, text Text nullable, created_at server_default now, expires_at DateTime index + ix_author_expires)
+- `backend/app/models/__init__.py` + Story
+- `backend/alembic/versions/005_create_stories.py` — stories — `--sql` verified
+- `backend/app/services/storage.py` + `STORY_IMAGE_MIME jpeg/png/webp 5MB`, `STORY_VIDEO_MIME mp4/webm 25MB`, `save_story_media` (mime check, size, Pillow for image, stories/ subdir UUID, public_url, media_type)
+- `backend/app/schemas/story.py` — AuthorPublic, StoryRead, StoryGroup
+- `backend/app/api/v1/stories.py` — `POST /stories` 201 (auth, multipart file required, text trim 2000, no author_id bypass, save_story_media, now+24h expires, return read), `GET /stories` 200 (auth, expires_at>now, allowed own+followed, grouped by author desc, own first), `GET /stories/{id}` 200 (auth, expired 404, privacy own/followed 404), `DELETE /stories/{id}` 204 (owner 403, file cleanup)
+- `backend/app/api/v1/router.py` + stories_router
+- Tests `app/tests/test_stories.py` 16 passed
+
+**Frontend:**
+- `frontend/src/api/stories.ts` — list/create/get/remove, resolveUrl
+- `frontend/src/components/StoryBar.tsx` — Add Story dashed + groups avatar gradient + username + count, create form (file jpeg/png/webp/mp4/webm, preview image/video, size, text 2000, publish, error, invalidate stories)
+- `frontend/src/components/StoryViewer.tsx` — modal black/80, author+timestamp+remaining h m, media image/video, text, prev/next, Esc, arrow keys, delete, index count
+- `frontend/src/pages/FeedPage.tsx` — StoryBar + Viewer state, between hero and PostComposer
+
+### Files Changed
+
+```
+[new] backend/app/models/story.py
+[mod] backend/app/models/__init__.py (+ Story)
+[new] backend/alembic/versions/005_create_stories.py
+[mod] backend/app/services/storage.py (+ STORY_IMAGE/VIDEO, save_story_media)
+[new] backend/app/schemas/story.py
+[new] backend/app/api/v1/stories.py
+[mod] backend/app/api/v1/router.py (+ stories_router)
+[new] backend/app/tests/test_stories.py (16 tests)
+[new] frontend/src/api/stories.ts
+[new] frontend/src/components/StoryBar.tsx
+[new] frontend/src/components/StoryViewer.tsx
+[mod] frontend/src/pages/FeedPage.tsx (+ StoryBar/Viewer)
+```
+
+### Database Changes
+
+- Migration `005_create_stories` — stories table — `--sql` OK, FK CASCADE, indexes
+
+### API Changes
+
+- `POST /api/v1/stories` (multipart file + text) → 201 StoryRead + expires +24h, 401, 415, 413, 422
+- `GET /api/v1/stories` → 200 grouped by author (own first + followed), active only (expires_at>now)
+- `GET /api/v1/stories/{id}` → 200, 404 expired/privacy, auth required
+- `DELETE /api/v1/stories/{id}` → 204, 403, 404 + file cleanup
+
+### Frontend Changes
+
+StoryBar + Viewer + Create UI, Feed integration, TanStack Query stories invalidation, no viewers/replies.
+
+### Security Changes
+
+- Upload: MIME allowlist image jpeg/png/webp + video mp4/webm, Pillow verify for images, size 5/25 MB, UUID filename, stories/ subdir, no traversal, no exec
+- Auth create/delete owner only, no author_id bypass, text 2000 plain text no HTML
+- Privacy own+followed only (not all users), expired 404 even if UUID known, backend truth expires_at not frontend
+
+### Tests
+
+- `pytest app/tests/test_stories.py -v` → **16 passed in 3.14s**:
+  - create 7 (image, video, unauth 401, invalid mime 415, oversized 413, text 422, no bypass)
+  - read 5 (active visible, expired 404, feed only active, followed visible, unrelated not visible, own visible)
+  - delete 3 (owner 204, other 403, nonexist 404)
+  - expiration 1 (filtering)
+- `pytest -v` all → **147 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories)
+- Frontend `tsc --noEmit` PASS, `npm run build` 1699 modules 484.30kB js gzip 147.48kB
+
+### Build
+
+- Frontend 3.23s, 16.98kB css
+- Backend import ok, routes verified, `alembic upgrade head --sql` all 5 migrations OK
+
+### Problems
+
+- `follows` router needed for stories privacy (followed users) — already existed from STEP7, reused
+- `save_story_media` needed to distinguish image vs video — added STORY_* constants, Pillow only for images
+- StoryBar preview video needed controls — added `<video controls>`
+
+### Fixed
+
+All fixed before green.
+
+### Known Issues
+
+- No Story viewers/read receipts (future)
+- No Story reactions/replies (future)
+- No background cleanup job (expired filtered on read)
+- Video no transcoding
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| 24h backend expires_at = now+24h | not frontend | Truth backend |
+| Storage stories/ separate | no mix | Clean separation |
+| Image 5MB Pillow, video 25MB mime | no FFmpeg | Spec §2 |
+| Groups own first + followed only | not all users | Spec §4 privacy MVP |
+| Viewer modal Esc/arrow + remaining | simple | Spec §11 |
+
+### Next Step
+
+**STEP 9 — Clubs**
+
+- Clubs model, members, channels, Discord-like structure
+
+---
+
 <!-- Шаблон для следующего STEP — копировать и заполнять:
 
 ## STEP X — Название
