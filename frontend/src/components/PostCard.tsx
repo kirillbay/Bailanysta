@@ -240,9 +240,9 @@ export function PostCard({ post, onUpdated, withComments = false }: { post: Post
               <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">
                 {post.content.split(/(#\w+)/g).map((part, i) =>
                   part.startsWith("#") ? (
-                    <span key={i} className="text-primary font-medium">
+                    <Link key={i} to={`/hashtags/${part.slice(1)}`} className="text-primary font-medium hover:underline">
                       {part}
-                    </span>
+                    </Link>
                   ) : (
                     <span key={i}>{part}</span>
                   )
@@ -261,7 +261,7 @@ export function PostCard({ post, onUpdated, withComments = false }: { post: Post
             {post.hashtags.length > 0 && !editing && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {post.hashtags.map((h) => (
-                  <span key={h} className="rounded-full bg-secondary px-2 py-0.5 text-xs">#{h}</span>
+                  <Link key={h} to={`/hashtags/${h}`} className="rounded-full bg-secondary px-2 py-0.5 text-xs hover:bg-accent">#{h}</Link>
                 ))}
               </div>
             )}

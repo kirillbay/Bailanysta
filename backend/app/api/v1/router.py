@@ -6,6 +6,9 @@ from app.api.v1.posts import router as posts_router
 from app.api.v1.feed import router as feed_router
 from app.api.v1.comments import router as comments_router
 from app.api.v1.bookmarks import router as bookmarks_router
+from app.api.v1.follows import router as follows_router
+from app.api.v1.search import router as search_router
+from app.api.v1.hashtags import router as hashtags_router
 
 api_router = APIRouter()
 
@@ -16,3 +19,6 @@ api_router.include_router(posts_router, tags=["posts"])
 api_router.include_router(feed_router, tags=["feed"])
 api_router.include_router(comments_router, tags=["comments"])
 api_router.include_router(bookmarks_router, tags=["bookmarks"])
+api_router.include_router(follows_router, tags=["follows"])
+api_router.include_router(search_router, tags=["search"])
+api_router.include_router(hashtags_router, tags=["hashtags"])

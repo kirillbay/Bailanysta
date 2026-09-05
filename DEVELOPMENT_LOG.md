@@ -974,6 +974,132 @@ All fixed before green.
 
 ---
 
+## STEP 7 — Follow, Search & Hashtags
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Добавить follow/followers, глобальный поиск (users/posts/hashtags) и hashtag страницы, используя существующие таблицы, без Stories/Clubs.
+
+### Implemented
+
+**Backend:**
+- `backend/app/models/follow.py` — `Follow` (UUID PK, follower_id FK CASCADE index, following_id FK CASCADE index, created_at, Unique follower+following, indexes follower_following, following_follower)
+- `backend/app/models/__init__.py` + Follow
+- `backend/alembic/versions/004_create_follows.py` — follows — `--sql` verified
+- `backend/app/api/v1/follows.py` — `POST /users/{username}/follow` 201 (auth, 404, 400 self, idempotent Already following), `DELETE` 204 idempotent, `GET /users/{username}/followers` paginated limit50 offset, `GET /following` similarly, followers/following counts, total
+- `backend/app/api/v1/search.py` — `GET /search?q&type&limit&offset` unified, trim, max 100 422, empty → empty lists, users ILIKE lower username/display_name no email/hash, posts ILIKE lower content, hashtags ILIKE lower name with posts_count, bulk counts for posts, public (no auth required), pagination limit 50
+- `backend/app/api/v1/hashtags.py` — `GET /hashtags/{name}` 404, case-insensitive lower, posts_count, `GET /hashtags/{name}/posts` paginated, case-insensitive, enrich via bulk counts, 404 if hashtag not found
+- `backend/app/api/v1/users.py` — `GET /users/{username}` now returns dict with followers_count, following_count, is_following (via cookie decode optional), not strict UserPublic model but compatible, follower/following counts via func.count, is_following via Follow query
+- `backend/app/api/v1/router.py` + follows/search/hashtags
+
+**Frontend:**
+- `frontend/src/api/follows.ts` — follow/unfollow, followers/following
+- `frontend/src/api/search.ts` — search(q,type), hashtag(name), hashtagPosts(name)
+- `frontend/src/pages/ProfilePage.tsx` — followers/following counts, Follow/Following button optimistic (followOptimistic + mutation, invalidate profile), own vs other logic, Followers/Following links
+- `frontend/src/pages/SearchPage.tsx` — input q with debounce 400ms `useDebounce`, tabs All/Users/Posts/Hashtags, sections users (avatar+username+followers), posts (PostCard), hashtags (card), loading/error/empty/no query, searchApi.search, setSearchParams
+- `frontend/src/pages/HashtagPage.tsx` — useParams name clean lower, infoQuery hashtag, postsQuery hashtagPosts with offset load more, PostCard, 404, skeleton, empty
+- `frontend/src/components/PostCard.tsx` — hashtags clickable `Link /hashtags/:name`, content split links `Link /hashtags/:tag`
+- `frontend/src/App.tsx` — `/search` → SearchPage, `/hashtags/:name` → HashtagPage
+
+### Files Changed
+
+```
+[new] backend/app/models/follow.py
+[mod] backend/app/models/__init__.py (+ Follow)
+[new] backend/alembic/versions/004_create_follows.py
+[new] backend/app/api/v1/follows.py
+[new] backend/app/api/v1/search.py
+[new] backend/app/api/v1/hashtags.py
+[mod] backend/app/api/v1/users.py (enriched profile with counts/is_following)
+[mod] backend/app/api/v1/router.py (+ follows/search/hashtags)
+[new] backend/app/tests/test_follow_search.py (21 tests)
+[new] frontend/src/api/follows.ts
+[new] frontend/src/api/search.ts
+[mod] frontend/src/pages/ProfilePage.tsx (follow button + counts)
+[new] frontend/src/pages/SearchPage.tsx
+[new] frontend/src/pages/HashtagPage.tsx
+[mod] frontend/src/components/PostCard.tsx (hashtag links)
+[mod] frontend/src/App.tsx (+ /search, /hashtags/:name)
+```
+
+### Database Changes
+
+- Migration `004_create_follows` — follows table — `--sql` OK, FK CASCADE, Unique, indexes
+
+### API Changes
+
+- `POST /api/v1/users/{username}/follow` 201, `DELETE` 204 idempotent, 400 self, 401 unauth, 404 nonexist
+- `GET /api/v1/users/{username}/followers?limit&offset` 200 paginated, `GET /following` similarly, items with followers/following counts
+- `GET /api/v1/search?q&type=users|posts|hashtags|all&limit&offset` → {users, posts, hashtags, query} public, 422 if q>100
+- `GET /api/v1/hashtags/{name}` 200, 404, case-insensitive, `GET /api/v1/hashtags/{name}/posts` paginated
+- `GET /api/v1/users/{username}` now returns `followers_count, following_count, is_following` + UserPublic fields
+
+### Frontend Changes
+
+Profile follow optimistic, Search tabs debounce 400ms, HashtagPage, clickable hashtags, routing, TanStack Query invalidate profile on follow.
+
+### Security Changes
+
+- Follow: auth required, self-follow 400, nonexist 404, duplicate safe, cannot manipulate other user (uses current_user.id)
+- Search: trim, max 100 422, limit 50, no private fields (email/hash not returned), public (no auth leak), limit abuse via max 50
+- Hashtag case-insensitive lower (already lower normalized from STEP5)
+- XSS: no dangerouslySetInnerHTML, React escape for search query/results
+
+### Tests
+
+- `pytest app/tests/test_follow_search.py -v` → **21 passed in 3.58s**:
+  - follow 8 (follow/unfollow counts/is_following, dup, self 400, unauth 401, nonexist 404, followers/following lists, pagination 2+2, isolation 2)
+  - search users 5 (by username, display_name, case-insensitive, pagination empty, too long 422, no sensitive)
+  - search posts 3 (by content, hashtag, case-insensitive)
+  - hashtags 4 (existing, case norm 3 variants, posts, nonexist 404)
+- `pytest -v` all → **131 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search)
+- Frontend `tsc --noEmit` PASS, `npm run build` 1696 modules 477.54kB js gzip 146.04kB
+
+### Build
+
+- Frontend 3.09s, 16.54kB css
+- Backend import ok, routes verified, `alembic upgrade head --sql` all 4 migrations OK
+
+### Problems
+
+- `test_hashtag_case_normalization` initially assumed hashtag from previous test persisted (rolled back) → 404 — fixed to create post within same test
+- `GET /users/{username}` response model changed from strict UserPublic to dict with extra fields — compatible but schema not strict; documented as enriched profile (future UserEnriched)
+- Search `q` empty → returned 200 with empty lists vs 422 — decided empty query returns empty (UX, no error)
+
+### Fixed
+
+All fixed before green.
+
+### Known Issues
+
+- Feed still global chronological, no following feed personalization (debt)
+- Search is ILIKE, not full-text index (MVP, no ES)
+- Hashtag posts pagination simple offset
+- Bookmarks pagination fixed 50
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| Follow UUID + Unique | follower+following + self check | Spec §1 |
+| Search unified `GET /search` with ILIKE lower | simple, no ES | Spec §4, no heavy tech |
+| Users ILIKE username/display_name | no email | Privacy §5 |
+| Hashtag lower already normalized | case-insensitive via func.lower | Spec §7, STEP5 lower |
+| Profile enriched with counts/is_following via cookie decode | not requiring auth for public profile | Spec §2, UX |
+| Debounce 400ms | not per keystroke | Spec §9 |
+
+### Next Step
+
+**STEP 8 — Stories**
+
+- Stories model (image/video/text, expires 24h), create/view/delete, frontend stories bar
+
+---
+
 <!-- Шаблон для следующего STEP — копировать и заполнять:
 
 ## STEP X — Название

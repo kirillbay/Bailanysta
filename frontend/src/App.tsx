@@ -9,6 +9,8 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { PostDetailPage } from "@/pages/PostDetailPage";
 import { BookmarksPage } from "@/pages/BookmarksPage";
+import { SearchPage } from "@/pages/SearchPage";
+import { HashtagPage } from "@/pages/HashtagPage";
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -26,10 +28,8 @@ const router = createBrowserRouter([
         path: "/explore",
         element: <PlaceholderPage titleKey="nav.explore" fallbackTitle="Explore" description="Рекомендации и популярное среди IT-сообщества." />,
       },
-      {
-        path: "/search",
-        element: <PlaceholderPage titleKey="nav.search" fallbackTitle="Search" description="Поиск по людям, постам, клубам и хештегам." />,
-      },
+      { path: "/search", element: <SearchPage /> },
+      { path: "/hashtags/:name", element: <HashtagPage /> },
       {
         path: "/clubs",
         element: <PlaceholderPage titleKey="nav.clubs" fallbackTitle="Clubs" description="IT-сообщества: Python Kazakhstan, AI Engineers, Frontend и др." />,

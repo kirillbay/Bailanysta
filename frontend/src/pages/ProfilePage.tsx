@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersApi } from "@/api/users";
+import { followsApi } from "@/api/follows";
 import { useAuth } from "@/stores/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,6 @@ const editSchema = z.object({
   display_name: z.string().max(100).optional().or(z.literal("")),
   bio: z.string().max(500).optional().or(z.literal("")),
 });
-
 type EditValues = z.infer<typeof editSchema>;
 
 function Avatar({ url, username }: { url: string | null; username: string }) {
@@ -48,7 +48,7 @@ export function ProfilePage() {
     enabled: !!isOwn && !!me,
   });
 
-  const data = isOwn ? (meQuery.data as any) ?? me : publicQuery.data;
+  const data: any = isOwn ? (meQuery.data as any) ?? me : publicQuery.data;
   const isLoading = isOwn ? meQuery.isPending && !me : publicQuery.isPending;
   const isError = isOwn ? meQuery.isError : publicQuery.isError;
 
@@ -57,19 +57,16 @@ export function ProfilePage() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState<"avatar" | "cover" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [followOptimistic, setFollowOptimistic] = useState<boolean | null>(null);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<EditValues>({
     resolver: zodResolver(editSchema),
-    defaultValues: { display_name: (data as any)?.display_name ?? "", bio: (data as any)?.bio ?? "" },
+    defaultValues: { display_name: data?.display_name ?? "", bio: data?.bio ?? "" },
   });
 
   const mutation = useMutation({
-    mutationFn: (values: EditValues) =>
-      usersApi.update({
-        display_name: values.display_name || null,
-        bio: values.bio || null,
-      }),
-    onSuccess: (updated) => {
+    mutationFn: (values: EditValues) => usersApi.update({ display_name: values.display_name || null, bio: values.bio || null }),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["profile-me"] });
       qc.invalidateQueries({ queryKey: ["auth", "me"] });
@@ -80,6 +77,21 @@ export function ProfilePage() {
     onError: (e: any) => setMsg(e.message || "Ошибка"),
   });
 
+  const followMut = useMutation({
+    mutationFn: () => {
+      const currently = followOptimistic ?? data?.is_following ?? false;
+      return currently ? followsApi.unfollow(targetUsername) : followsApi.follow(targetUsername);
+    },
+    onMutate: () => {
+      const currently = followOptimistic ?? data?.is_following ?? false;
+      setFollowOptimistic(!currently);
+    },
+    onError: () => setFollowOptimistic(null),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["profile", targetUsername] });
+    },
+  });
+
   const handleFile = async (file: File, type: "avatar" | "cover") => {
     setUploading(type);
     setMsg(null);
@@ -87,14 +99,13 @@ export function ProfilePage() {
       const url = URL.createObjectURL(file);
       if (type === "avatar") setAvatarPreview(url);
       else setCoverPreview(url);
-
-      const updated = type === "avatar" ? await usersApi.uploadAvatar(file) : await usersApi.uploadCover(file);
+      if (type === "avatar") await usersApi.uploadAvatar(file);
+      else await usersApi.uploadCover(file);
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["profile-me"] });
       qc.invalidateQueries({ queryKey: ["auth", "me"] });
       setMsg(type === "avatar" ? "Аватар обновлён" : "Обложка обновлена");
       setTimeout(() => setMsg(null), 3000);
-      // revoke preview after success — real url will show
       setTimeout(() => {
         if (type === "avatar") setAvatarPreview(null);
         else setCoverPreview(null);
@@ -108,10 +119,7 @@ export function ProfilePage() {
     }
   };
 
-  if (!targetUsername) {
-    return <div className="text-center text-sm text-muted-foreground">Загрузка профиля...</div>;
-  }
-
+  if (!targetUsername) return <div className="text-center text-sm text-muted-foreground">Загрузка профиля...</div>;
   if (isLoading) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
@@ -120,7 +128,6 @@ export function ProfilePage() {
       </div>
     );
   }
-
   if (isError || !data) {
     return (
       <div className="mx-auto max-w-2xl text-center space-y-3 py-12">
@@ -132,10 +139,10 @@ export function ProfilePage() {
   }
 
   const coverUrl = usersApi.resolveUrl((data as any).cover_url);
+  const isFollowing = followOptimistic ?? (data as any).is_following ?? false;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      {/* Cover */}
       <div className="overflow-hidden rounded-[24px] border bg-card">
         <div className="h-32 w-full bg-gradient-to-br from-violet-500 via-indigo-500 to-sky-500 relative">
           {coverUrl && <img src={coverUrl} alt="cover" className="h-full w-full object-cover" />}
@@ -154,11 +161,15 @@ export function ProfilePage() {
               <h1 className="text-lg font-semibold truncate">{(data as any).display_name || data.username}</h1>
               <p className="text-sm text-muted-foreground">@{data.username}</p>
               {(data as any).bio && <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">{(data as any).bio}</p>}
-              <p className="mt-2 text-xs text-muted-foreground">С нами с {new Date(data.created_at).toLocaleDateString("ru-RU")}</p>
+              <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
+                <span><b className="text-foreground">{(data as any).followers_count ?? 0}</b> followers</span>
+                <span><b className="text-foreground">{(data as any).following_count ?? 0}</b> following</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">С нами с {new Date(data.created_at).toLocaleDateString("ru-RU")}</p>
             </div>
           </div>
 
-          {isOwn && (
+          {isOwn ? (
             <div className="mt-4 flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={() => setEditOpen((v) => !v)}>
                 {editOpen ? "Закрыть" : "Редактировать профиль"}
@@ -171,6 +182,14 @@ export function ProfilePage() {
                 {uploading === "cover" ? "Загрузка..." : "Загрузить обложку"}
                 <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0], "cover")} disabled={!!uploading} />
               </label>
+            </div>
+          ) : (
+            <div className="mt-4">
+              <Button size="sm" variant={isFollowing ? "outline" : "default"} onClick={() => followMut.mutate()} disabled={followMut.isPending}>
+                {isFollowing ? "Отписаться" : "Подписаться"}
+              </Button>
+              <Link to={`/profile/${data.username}/followers`} className="ml-3 text-xs text-muted-foreground hover:underline">Followers</Link>
+              <Link to={`/profile/${data.username}/following`} className="ml-2 text-xs text-muted-foreground hover:underline">Following</Link>
             </div>
           )}
 
@@ -200,11 +219,10 @@ export function ProfilePage() {
         </div>
       </div>
 
-      {/* Future sections */}
       <Card>
         <CardContent className="p-6 text-center">
           <p className="text-sm font-medium">Посты</p>
-          <p className="text-xs text-muted-foreground">Пока пусто — посты появятся в STEP 5.</p>
+          <p className="text-xs text-muted-foreground">Посты пользователя — через feed и /profile/:username/posts (STEP5).</p>
         </CardContent>
       </Card>
     </div>

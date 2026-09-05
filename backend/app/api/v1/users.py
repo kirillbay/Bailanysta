@@ -1,6 +1,6 @@
 """Profiles: public GET, own GET/PATCH, avatar/cover upload + user posts."""
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request, status
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -61,12 +61,32 @@ def get_user_posts(username: str, db: Session = Depends(get_db), limit: int = Qu
     return result
 
 
-@router.get("/{username}", response_model=UserPublic)
-def get_public_profile(username: str, db: Session = Depends(get_db)):
+@router.get("/{username}")
+def get_public_profile(username: str, request: Request, db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    from app.models.follow import Follow
+    from app.core.security import COOKIE_NAME, decode_token
+    import uuid as _uuid, jwt
+
     user = db.query(User).filter(User.username == username.strip()).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    followers = db.query(func.count(Follow.id)).filter(Follow.following_id == user.id).scalar() or 0
+    following = db.query(func.count(Follow.id)).filter(Follow.follower_id == user.id).scalar() or 0
+    is_following = False
+    token = request.cookies.get(COOKIE_NAME)
+    if token:
+        try:
+            payload = decode_token(token)
+            uid = _uuid.UUID(str(payload.get("sub")))
+            is_following = db.query(Follow).filter(Follow.follower_id == uid, Follow.following_id == user.id).first() is not None
+        except Exception:
+            pass
+    return {
+        "id": user.id, "username": user.username, "display_name": user.display_name, "bio": user.bio,
+        "avatar_url": user.avatar_url, "cover_url": user.cover_url, "created_at": user.created_at,
+        "followers_count": followers, "following_count": following, "is_following": is_following
+    }
 
 
 @router.post("/me/avatar", response_model=UserRead)
