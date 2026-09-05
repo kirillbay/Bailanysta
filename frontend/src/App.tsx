@@ -6,6 +6,7 @@ import { NotFoundPage } from "@/pages/NotFoundPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { RequireAuth } from "@/components/RequireAuth";
+import { ProfilePage } from "@/pages/ProfilePage";
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -43,10 +44,8 @@ const router = createBrowserRouter([
         path: "/notifications",
         element: <PlaceholderPage titleKey="nav.notifications" fallbackTitle="Notifications" description="Лайки, комментарии, подписки, упоминания." />,
       },
-      {
-        path: "/profile",
-        element: <PlaceholderPage titleKey="nav.profile" fallbackTitle="Profile" description="Твой профиль: аватар, bio, навыки, проекты." />,
-      },
+      { path: "/profile", element: <ProfilePage /> },
+      { path: "/profile/:username", element: <ProfilePage /> },
       {
         path: "/settings",
         element: <PlaceholderPage titleKey="nav.settings" fallbackTitle="Settings" description="Язык, тема, приватность — появятся в STEP 13." />,

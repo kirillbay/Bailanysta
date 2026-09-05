@@ -17,8 +17,11 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production-generate-32-bytes"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
-    # Refresh not used in STEP3 simple flow, but kept for future
     refresh_token_expire_days: int = 7
+
+    upload_dir: str = "./uploads"
+    max_avatar_size_mb: int = 5
+    max_cover_size_mb: int = 5
 
     @property
     def cors_origins_list(self) -> List[str]:

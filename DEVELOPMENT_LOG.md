@@ -595,6 +595,122 @@ All above fixed before green.
 
 ---
 
+## STEP 4 — Profiles
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Реализовать базовую систему профилей: публичный `GET /users/{username}`, own `GET/PATCH /users/me`, avatar/cover upload с безопасным storage, frontend `/profile` и `/profile/{username}` с редактированием и загрузкой, без fake data.
+
+### Implemented
+
+**Backend:**
+- `backend/requirements.txt` + `Pillow==11.1.0` + `python-multipart==0.0.9` (installed)
+- `backend/app/core/config.py` + `upload_dir="./uploads"`, `max_avatar/cover 5 MB`
+- `backend/app/services/storage.py` — `ALLOWED_MIME jpeg/png/webp`, `MAX_MB 5`, `_validate_size` 413, `_detect_and_validate` (Pillow verify + format→ext, 415 on invalid), `save_image` (UUID hex, safe_subdir alphanumeric, `/uploads/<subdir>/<uuid>.ext`, public_url)
+- `backend/app/schemas/user.py` — `UserPublic` (id,username,display_name,bio,avatar/cover,created_at) без email/hash, `UserRead` full, `UserUpdate` (display_name 100, bio 500)
+- `backend/app/api/v1/users.py` — `GET /users/me` 200 protected, `PATCH /users/me` 200 (only own via get_current_user, strip, 422), `GET /users/{username}` 200 public 404 no email/hash leak, `POST /users/me/avatar` 200 (auth, empty 400, save_image avatars, static check 200), `POST /users/me/cover` 200 (covers); no IDOR endpoint
+- `backend/app/api/v1/router.py` — include users_router
+- `backend/app/main.py` — `Path(upload_dir).mkdir` + `mount /uploads StaticFiles` (safe, no code exec)
+- `.gitignore` already covers `backend/uploads/` + `uploads/` — no files in Git
+
+**Frontend:**
+- `frontend/src/api/client.ts` + `patch<T>`
+- `frontend/src/api/users.ts` — `UserPublic`, `UserMe`, `usersApi.me()/public()/update()/uploadAvatar()/uploadCover()` (FormData POST credentials include), `resolveUrl` (API_URL prefix)
+- `frontend/src/pages/ProfilePage.tsx` — cover (gradient fallback, coverUrl, preview), Avatar component (initial or img), display_name/username/bio/created_at, own edit toggle (RHF Zod display_name 100 bio 500), upload buttons (accept jpeg/png/webp, preview URL.createObjectURL, uploading state, msg, invalidate queries on success), Card future posts
+- `frontend/src/App.tsx` — `/profile` + `/profile/:username` → `ProfilePage`, still protected via RequireAuth
+
+### Files Changed
+
+```
+[mod] backend/requirements.txt (+ Pillow, python-multipart)
+[mod] backend/app/core/config.py (+ upload_dir, max sizes)
+[new] backend/app/services/storage.py
+[mod] backend/app/schemas/user.py (+ UserPublic, UserUpdate)
+[new] backend/app/api/v1/users.py
+[mod] backend/app/api/v1/router.py (+ users_router)
+[mod] backend/app/main.py (+ StaticFiles /uploads)
+[mod] frontend/src/api/client.ts (+ patch)
+[new] frontend/src/api/users.ts
+[new] frontend/src/pages/ProfilePage.tsx
+[mod] frontend/src/App.tsx (+ /profile/:username)
+[new] backend/app/tests/test_profiles.py (18 tests)
+```
+
+### Database Changes
+
+No migration (users already has avatar_url, cover_url, display_name, bio). `001_create_users` remains.
+
+### API Changes
+
+- `GET /api/v1/users/me` → 200 UserRead (auth), 401 unauth — reuse auth, not duplicating /auth/me logic (separate endpoint for users domain)
+- `PATCH /api/v1/users/me` → 200 updated, 422 bio>500, 401 unauth
+- `GET /api/v1/users/{username}` → 200 UserPublic (no email/hash/JWT), 404
+- `POST /api/v1/users/me/avatar` → 200 UserRead avatar_url `/uploads/avatars/<uuid>.ext`, 401, 415 unsupported, 413 oversized, safe filename no traversal
+- `POST /api/v1/users/me/cover` → 200 cover_url similarly
+- `GET /uploads/...` static — served, no code execution
+
+### Frontend Changes
+
+ProfilePage with real data, edit form, upload preview/loading/error, TanStack Query (me + public + mutation invalidate), no fake counts, no reload.
+
+### Security Changes
+
+- No email/hash leak via public profile (UserPublic)
+- Ownership only own (get_current_user, no ID param)
+- No IDOR PATCH other user (no endpoint)
+- Upload: auth required, MIME allowlist jpeg/png/webp, Pillow verify, UUID filename, safe_subdir, no user path, size 5 MB 413, no path traversal (`../../etc/passwd` → safe), generated unique, stored outside code, static mount safe, no exec
+- UPLOAD_DIR via env, gitignored, public_url not filesystem path
+
+### Tests
+
+- `pytest app/tests/test_profiles.py -v` → **18 passed in 2.77s**:
+  - public 3 (success no email/hash, 404, no jwt), own 2 (auth 200, unauth 401), update 4 (own success persisted, 422, no IDOR 404, unauth 401), uploads 8 (avatar/cover success + static 200, unauth 401, unsupported 415, oversized 413/415, malicious filename safe, unique filename, no traversal, email leak after update), plus 1 public after update email leak
+- `pytest -v` all → **57 passed** (25 auth + 8 db + 6 health + 18 profiles) 4.48s
+- Frontend `tsc --noEmit` PASS, `npm run build` PASS 3.25s (458.08 kB js gzip 141.60 kB)
+
+### Build
+
+- Frontend 1685 modules, 17.77 kB css
+- Backend `python -c "from app.main import app"` routes include /users/* + /uploads verified
+
+### Problems
+
+- `import app.models` shadowed `from app.main import app` → `AttributeError: module 'app' has no attribute 'dependency_overrides'` — fixed by `from app.main import app as fastapi_app`
+- Stray `@pytest.fixture_scope if False` left in test file → TypeError — removed
+
+### Fixed
+
+Both fixed before green.
+
+### Known Issues
+
+- Local uploads `./uploads` — MVP, S3 abstraction ready via `services/storage.py` (STEP16)
+- No username editing (immutable per ARCHITECTURE)
+- No delete avatar/cover endpoint (overwrite via upload)
+- Docker absence (known)
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| LocalStorage + Pillow verify | UUID hex + safe_subdir | Security + S3 later without API break |
+| UserPublic separate schema | no email/hash | Privacy |
+| PATCH /users/me only own | no PATCH /users/{id} | IDOR prevention |
+| Static /uploads mount | StaticFiles | Simple serve, no exec |
+| Frontend preview via ObjectURL + invalidate | TanStack Query | UX immediate |
+
+### Next Step
+
+**STEP 5 — Posts & Media**
+
+- `posts` model + migration, `POST /posts` (text+hashtags), media storage, tests, frontend composer
+
+---
+
 <!-- Шаблон для следующего STEP — копировать и заполнять:
 
 ## STEP X — Название

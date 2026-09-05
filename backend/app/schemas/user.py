@@ -1,4 +1,4 @@
-"""Minimal Pydantic schemas for User foundation — no endpoints yet (STEP 3+)."""
+"""Pydantic schemas for User."""
 
 import uuid
 from datetime import datetime
@@ -25,3 +25,23 @@ class UserRead(UserBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+
+class UserPublic(BaseModel):
+    """Public profile — no email, no secrets."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    username: str
+    display_name: str | None
+    bio: str | None
+    avatar_url: str | None
+    cover_url: str | None
+    created_at: datetime
+
+
+class UserUpdate(BaseModel):
+    display_name: str | None = Field(default=None, max_length=100)
+    bio: str | None = Field(default=None, max_length=500)
+    # avatar_url/cover_url are set via upload endpoints, not directly patchable to avoid SSRF
