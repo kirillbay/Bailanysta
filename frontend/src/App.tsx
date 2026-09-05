@@ -7,6 +7,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { RequireAuth } from "@/components/RequireAuth";
 import { ProfilePage } from "@/pages/ProfilePage";
+import { PostDetailPage } from "@/pages/PostDetailPage";
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -46,6 +47,7 @@ const router = createBrowserRouter([
       },
       { path: "/profile", element: <ProfilePage /> },
       { path: "/profile/:username", element: <ProfilePage /> },
+      { path: "/posts/:postId", element: <PostDetailPage /> },
       {
         path: "/settings",
         element: <PlaceholderPage titleKey="nav.settings" fallbackTitle="Settings" description="Язык, тема, приватность — появятся в STEP 13." />,

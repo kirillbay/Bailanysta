@@ -1,11 +1,13 @@
-"""Profiles: public GET, own GET/PATCH, avatar/cover upload."""
+"""Profiles: public GET, own GET/PATCH, avatar/cover upload + user posts."""
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
 from sqlalchemy.orm import Session
+from typing import List
 
 from app.core.deps import get_current_user
 from app.database.session import get_db
 from app.models.user import User
+from app.models.post import Post
 from app.schemas.user import UserPublic, UserRead, UserUpdate
 from app.services.storage import save_image
 
@@ -27,6 +29,18 @@ def update_me(payload: UserUpdate, db: Session = Depends(get_db), current_user: 
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+@router.get("/{username}/posts")
+def get_user_posts(username: str, db: Session = Depends(get_db), limit: int = Query(20, ge=1, le=50), offset: int = Query(0, ge=0)):
+    from app.api.v1.posts import _post_to_read
+
+    user = db.query(User).filter(User.username == username.strip()).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    limit = min(limit, 50)
+    posts = db.query(Post).filter(Post.author_id == user.id).order_by(Post.created_at.desc()).offset(offset).limit(limit).all()
+    return [_post_to_read(p) for p in posts]
 
 
 @router.get("/{username}", response_model=UserPublic)

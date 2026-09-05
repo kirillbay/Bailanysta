@@ -711,6 +711,138 @@ Both fixed before green.
 
 ---
 
+## STEP 5 — Posts & Media
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Реализовать настоящую систему постов: Post/Media/Hashtag модели, медиа лимиты, CRUD API с пагинацией, hashtags, frontend composer + PostCard + detail + edit/delete, без likes/comments/follows.
+
+### Implemented
+
+**Backend:**
+- `backend/app/models/post.py` — `Post` (UUID PK, author_id FK CASCADE index, content Text, created_at index, updated_at, author joined, media selectin, hashtags selectin, ix_posts_author_created), `PostMedia` (UUID PK, post_id FK CASCADE, url 512, mime 50, position Unique post/position, index), `Hashtag` (UUID PK, name 100 unique index lower), `post_hashtags` (PK composite CASCADE)
+- `backend/app/models/__init__.py` — export Post, PostMedia, Hashtag
+- `backend/alembic/versions/002_create_posts.py` — hashtags, posts, post_media, post_hashtags — `--sql` PostgresqlImpl verified
+- `backend/app/services/hashtags.py` — `HASHTAG_RE #\w{1,50}`, MAX 20, MAX_LEN 50, lower, dedup, limit
+- `backend/app/schemas/post.py` — `AuthorPublic`, `PostMediaRead`, `PostRead` (author, media, hashtags), `PostCreateInput` 1-10000, `PostUpdateInput` 1-10000
+- `backend/app/api/v1/posts.py` — `POST /posts` 201 (Form content 1-10000 + files Optional 0-4, stripped+media check, save_image posts/ with cleanup on fail, Post+PostMedia+hashtags transaction, delete orphan file handling), `GET /posts/{id}` 200 404 public, `GET /posts/by/user/{username}` + `GET /users/{username}/posts` alias 200 pagination limit 20 le50 offset, `PATCH /posts/{id}` 200 owner 403 hashtags recalc, `DELETE /posts/{id}` 204 owner 403 cascade + file unlink
+- `backend/app/api/v1/users.py` — added `GET /users/{username}/posts` alias (before generic), uses _post_to_read
+- `backend/app/api/v1/router.py` — include posts_router
+- `frontend/src/api/posts.ts` — create via FormData POST, get, userPosts, patch, remove, resolveUrl
+- Storage reuse: `posts/` subdir separate from avatars/covers
+
+**Frontend:**
+- `frontend/src/components/PostComposer.tsx` — avatar, textarea placeholder, counter 10000, picker max 4, previews URL.createObjectURL + remove, POST button disabled, invalidate posts/user-posts
+- `frontend/src/components/PostCard.tsx` — author avatar fallback, name/username/timestamp, content split hashtags colored, media grid 1/2, hashtags badges, owner edit (textarea + save/cancel), delete confirm, link to detail, invalidate
+- `frontend/src/pages/FeedPage.tsx` — hero + PostComposer + useQuery user-posts + health card (updated to STEP5 badge)
+- `frontend/src/pages/PostDetailPage.tsx` — useParams postId, useQuery get, skeleton/404, PostCard
+- `frontend/src/App.tsx` — `/posts/:postId` protected
+
+### Files Changed
+
+```
+[new] backend/app/models/post.py
+[mod] backend/app/models/__init__.py (+ Post, Hashtag)
+[new] backend/alembic/versions/002_create_posts.py
+[new] backend/app/services/hashtags.py
+[new] backend/app/schemas/post.py
+[new] backend/app/api/v1/posts.py
+[mod] backend/app/api/v1/users.py (+ GET /users/{username}/posts alias)
+[mod] backend/app/api/v1/router.py (+ posts_router)
+[new] backend/app/tests/test_posts.py (29 tests)
+[new] frontend/src/api/posts.ts
+[new] frontend/src/components/PostComposer.tsx
+[new] frontend/src/components/PostCard.tsx
+[new] frontend/src/pages/PostDetailPage.tsx
+[mod] frontend/src/pages/FeedPage.tsx (+ composer + user posts feed)
+[mod] frontend/src/App.tsx (+ /posts/:postId)
+```
+
+### Database Changes
+
+- New tables: `posts`, `post_media`, `hashtags`, `post_hashtags` — FK CASCADE, indexes, unique constraints
+- Migration `002_create_posts` — upgrade/downgrade --sql OK
+
+### API Changes
+
+- `POST /api/v1/posts` (multipart content + files) → 201 PostRead + media + hashtags, 401, 422 (empty, oversized, max 4)
+- `GET /api/v1/posts/{id}` → 200 PostRead public 404
+- `GET /api/v1/users/{username}/posts?limit&offset` + `GET /api/v1/posts/by/user/{username}` → 200 list paginated 50 max, 404 user, 422 limit>50
+- `PATCH /api/v1/posts/{id}` → 200 updated + hashtags, 403 not owner, 404, 422
+- `DELETE /api/v1/posts/{id}` → 204, 403, 404 + file cleanup best effort
+
+### Frontend Changes
+
+Composer + PostCard + Feed + Detail with real API, no fake counters, edit/delete with confirmation, hashtag highlight, TanStack Query invalidate.
+
+### Security Changes
+
+- Auth required for create/patch/delete, public read
+- Ownership via `post.author_id != current_user.id` → 403, no author_id bypass (PostUpdateInput only content)
+- Content length 1-10000, empty rejected unless media, max 4 files enforced backend
+- MIME via save_image Pillow verify, filename sanitized UUID, subdir posts/, no path traversal
+- No HTML rendering (whitespace text, hashtag span), XSS safe (React escape)
+- Transaction + file cleanup on DB fail (documented limitation not atomic but safe)
+
+### Tests
+
+- `pytest app/tests/test_posts.py -v` → **29 passed in 4.58s**:
+  - posts 5 (auth, unauth 401, empty 422, oversized 422, author public)
+  - media 8 (jpeg/png/webp, unsupported 415, oversized 413, invalid content 415, malicious safe, max 4 enforced, dir posts/)
+  - read 4 (existing, 404, pagination 2+2, limit 422)
+  - ownership 5 (update/delete owner, other cannot update/delete 403, forged author_id ignored)
+  - hashtags 4 (extract python/ai duplicate, normalization lower, duplicate, excessive limit 20)
+  - delete 2 (media records removed + file cleanup, edit updates hashtags)
+- `pytest -v` all → **86 passed** (25 auth + 8 db + 6 health + 18 profiles + 29 posts)
+- Frontend `tsc --noEmit` PASS, `npm run build` 1689 modules 464.78 kB js gzip 143.51 kB
+
+### Build
+
+- Frontend 3.52s, 18.34 kB css
+- Backend import ok, routes /posts + /users/{username}/posts verified, `alembic upgrade head --sql` both migrations OK
+
+### Problems
+
+- `FeedPage.tsx` imports with backslash `\\` due to Windows path → TS2307 — fixed to `/`
+- `posts` PATCH used `payload: dict` — no validation — fixed to `PostUpdateInput` Pydantic
+- Users `GET /users/{username}` conflict with `GET /users/{username}/posts` — fixed by ordering + alias
+- `List[UploadFile] = File(default=[])` caused issues with no files — fixed to `Optional[List[UploadFile]] = File(None)` + `files or []`
+
+### Fixed
+
+All fixed before green.
+
+### Known Issues
+
+- Feed is user-posts only (no global feed ranking — STEP6)
+- No likes/comments (STEP6)
+- Hashtag search not yet (tables ready)
+- Media editing on patch immutable (documented)
+- Physical cleanup best effort (documented)
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| Content 10000 | 1-10000 + empty if media | Spec §5-9 |
+| Storage posts/ separate | reuse storage.py | Clean separation |
+| Hashtag #\w 1-50 lower dedup max20 | regex + lower | Spec §16, STEP7 ready |
+| Multipart Form content+files | one POST | Spec §9 clean API |
+| Offset pagination limit 50 | Query ge1 le50 | MVP spec §12 |
+| Cascade delete + file unlink | best effort | Spec §14 limitation |
+
+### Next Step
+
+**STEP 6 — Feed & Social Interactions**
+
+- Global feed, likes/comments/reposts/bookmarks, Post interactions, optimistic UI
+
+---
+
 <!-- Шаблон для следующего STEP — копировать и заполнять:
 
 ## STEP X — Название

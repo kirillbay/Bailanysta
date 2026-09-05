@@ -6,10 +6,23 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { API_URL } from "@/api/client";
 import { Activity, CheckCircle2, AlertTriangle, RefreshCw, Radio } from "lucide-react";
+import { PostComposer } from "@/components/PostComposer";
+import { PostCard } from "@/components/PostCard";
+import { useQuery } from "@tanstack/react-query";
+import { postsApi } from "@/api/posts";
+import { useAuth } from "@/stores/auth";
 
 export function FeedPage() {
   const { t } = useTranslation();
   const health = useHealth();
+  const { user } = useAuth();
+
+  // Show recent posts from current user as simple feed (STEP5: user posts feed)
+  const postsQuery = useQuery({
+    queryKey: ["user-posts", user?.username],
+    queryFn: () => postsApi.userPosts(user!.username, 20, 0),
+    enabled: !!user?.username,
+  });
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -17,29 +30,40 @@ export function FeedPage() {
       <div className="rounded-[24px] border bg-card p-6 sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <Badge className="rounded-full">Bailanysta · STEP 1 Foundation</Badge>
+            <Badge className="rounded-full">Bailanysta · STEP 5 Posts</Badge>
             <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">Байланыста болайық</h1>
             <p className="max-w-[44ch] text-sm leading-relaxed text-muted-foreground">
-              {t("common.tagline", "Социальная платформа для IT-комьюнити")} — лента, клубы, проекты и общение. Foundation уже запущен.
+              {t("common.tagline", "Социальная платформа для IT-комьюнити")} — лента, клубы, проекты и общение.
             </p>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-foreground text-background text-lg font-bold">
             Б
           </div>
         </div>
+      </div>
 
-        <div className="mt-6 grid grid-cols-3 gap-3">
-          {[
-            { k: "Threads", v: "лента" },
-            { k: "Discord", v: "клубы" },
-            { k: "GitHub", v: "проекты" },
-          ].map((x) => (
-            <div key={x.k} className="rounded-2xl bg-secondary p-3 text-center">
-              <div className="text-xs text-muted-foreground">{x.k}</div>
-              <div className="text-sm font-medium">{x.v}</div>
-            </div>
-          ))}
-        </div>
+      <PostComposer />
+
+      {/* User posts feed */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold">Мои посты</h2>
+        {postsQuery.isPending && <Skeleton className="h-32 w-full rounded-2xl" />}
+        {postsQuery.isError && (
+          <Card>
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">Не удалось загрузить посты</CardContent>
+          </Card>
+        )}
+        {postsQuery.isSuccess && postsQuery.data.length === 0 && (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-sm font-medium">Пока пусто</p>
+              <p className="text-xs text-muted-foreground">Создай первый пост выше.</p>
+            </CardContent>
+          </Card>
+        )}
+        {postsQuery.data?.map((p) => (
+          <PostCard key={p.id} post={p} onUpdated={() => postsQuery.refetch()} />
+        ))}
       </div>
 
       {/* Health check card — integration demo */}
@@ -73,7 +97,6 @@ export function FeedPage() {
                     {(health.error as Error)?.message ?? t("common.error", "Ошибка")} — убедись что backend запущен на{" "}
                     <code className="rounded bg-amber-100 px-1 py-0.5 dark:bg-amber-900/50">{API_URL}</code>
                   </p>
-                  <p className="text-xs text-muted-foreground">Это ожидаемо, если ты ещё не запустил `uvicorn`.</p>
                 </div>
               </div>
               <Button variant="outline" size="sm" className="mt-3" onClick={() => health.refetch()}>
@@ -92,39 +115,8 @@ export function FeedPage() {
               <pre className="mt-3 overflow-auto rounded-lg bg-white p-3 text-xs leading-relaxed dark:bg-black/20">
                 {JSON.stringify(health.data, null, 2)}
               </pre>
-              <Button variant="outline" size="sm" className="mt-3" onClick={() => health.refetch()}>
-                <RefreshCw className="mr-2 h-3.5 w-3.5" /> Обновить
-              </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Skeleton demo */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Loading / Empty / Error states</CardTitle>
-          <CardDescription>Foundation предусматривает skeleton, empty и error состояния.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">Skeleton (имитация загрузки ленты):</p>
-            <div className="space-y-3 rounded-xl border p-4">
-              <div className="flex gap-3">
-                <Skeleton className="h-9 w-9 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-3 w-24" />
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-5/6" />
-                </div>
-              </div>
-              <Skeleton className="h-40 w-full" />
-            </div>
-          </div>
-          <div className="rounded-xl border border-dashed p-6 text-center">
-            <p className="text-sm font-medium">Пока пусто</p>
-            <p className="text-xs text-muted-foreground">Здесь будет твоя лента — после STEP 5-6.</p>
-          </div>
         </CardContent>
       </Card>
     </div>
