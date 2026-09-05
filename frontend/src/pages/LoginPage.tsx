@@ -45,39 +45,45 @@ export function LoginPage() {
     <div className="mx-auto max-w-md space-y-6 pt-6">
       <Card>
         <CardHeader>
-          <CardTitle>Вход</CardTitle>
-          <CardDescription>Войдите в Bailanysta — IT community platform.</CardDescription>
+          <CardTitle>{t("auth.loginTitle")}</CardTitle>
+          <CardDescription>{t("auth.loginDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Email или username</label>
+              <label htmlFor="login-identifier" className="text-sm font-medium">{t("auth.identifier")}</label>
               <input
+                id="login-identifier"
                 {...register("identifier")}
-                placeholder="you@example.com или username"
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                placeholder={t("auth.identifierPlaceholder")}
+                autoComplete="username"
+                aria-label={t("auth.identifier")}
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
               />
-              {errors.identifier && <p className="text-xs text-red-500">{errors.identifier.message}</p>}
+              {errors.identifier && <p className="text-xs text-red-500" role="alert">{t("validation.required")}</p>}
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Пароль</label>
+              <label htmlFor="login-password" className="text-sm font-medium">{t("auth.password")}</label>
               <input
+                id="login-password"
                 {...register("password")}
                 type="password"
-                placeholder="••••••••"
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                placeholder={t("auth.passwordPlaceholder")}
+                autoComplete="current-password"
+                aria-label={t("auth.password")}
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
               />
-              {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
+              {errors.password && <p className="text-xs text-red-500" role="alert">{t("validation.required")}</p>}
             </div>
-            {serverError && <p className="rounded-xl bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-300">{serverError}</p>}
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Вход..." : "Войти"}
+            {serverError && <p className="rounded-xl bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-300" role="alert">{serverError}</p>}
+            <Button type="submit" className="w-full" disabled={isSubmitting} aria-busy={isSubmitting}>
+              {isSubmitting ? t("auth.loggingIn") : t("auth.login")}
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Нет аккаунта?{" "}
-            <Link to="/register" className="font-medium text-foreground underline">
-              Регистрация
+            {t("auth.noAccount")}{" "}
+            <Link to="/register" className="font-medium text-foreground underline focus-visible:ring-2 focus-visible:ring-ring rounded">
+              {t("auth.register")}
             </Link>
           </p>
         </CardContent>

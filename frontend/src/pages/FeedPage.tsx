@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { PostComposer } from "@/components/PostComposer";
 import { PostCard } from "@/components/PostCard";
@@ -11,6 +12,7 @@ import { StoryViewer } from "@/components/StoryViewer";
 import { StoryGroup } from "@/api/stories";
 
 export function FeedPage() {
+  const { t } = useTranslation();
   const [offset, setOffset] = useState(0);
   const limit = 20;
   const [allPosts, setAllPosts] = useState<any[]>([]);
@@ -31,8 +33,8 @@ export function FeedPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="rounded-[24px] border bg-card p-6">
-        <h1 className="text-xl font-bold">Лента</h1>
-        <p className="text-sm text-muted-foreground">Что происходит в IT-сообществе — глобальная лента по времени.</p>
+        <h1 className="text-xl font-bold">{t("feed.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("feed.subtitle")}</p>
       </div>
 
       <StoryBar onSelect={(group, idx) => setViewer({ group, idx })} />
@@ -44,14 +46,14 @@ export function FeedPage() {
         {query.isPending && offset === 0 && <Skeleton className="h-40 w-full rounded-2xl" />}
         {query.isError && (
           <Card>
-            <CardContent className="p-6 text-center text-sm text-red-500">Ошибка загрузки ленты</CardContent>
+            <CardContent className="p-6 text-center text-sm text-red-500" role="alert">{t("feed.error")}</CardContent>
           </Card>
         )}
         {query.isSuccess && allPosts.length === 0 && (
           <Card>
             <CardContent className="p-6 text-center">
-              <p className="text-sm font-medium">Лента пуста</p>
-              <p className="text-xs text-muted-foreground">Стань первым — создай пост!</p>
+              <p className="text-sm font-medium">{t("feed.empty")}</p>
+              <p className="text-xs text-muted-foreground">{t("feed.emptyDesc")}</p>
             </CardContent>
           </Card>
         )}
@@ -62,8 +64,8 @@ export function FeedPage() {
 
       {hasMore && (
         <div className="flex justify-center">
-          <Button variant="outline" onClick={() => setOffset((o) => o + limit)} disabled={query.isFetching}>
-            {query.isFetching ? "Загрузка..." : "Загрузить ещё"}
+          <Button variant="outline" onClick={() => setOffset((o) => o + limit)} disabled={query.isFetching} aria-label={t("common.loadMore")}>
+            {query.isFetching ? t("common.loading") : t("feed.loadMore")}
           </Button>
         </div>
       )}

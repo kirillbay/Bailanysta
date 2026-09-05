@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchParams, Link } from "react-router-dom";
 import { searchApi, SearchResult } from "@/api/search";
 import { postsApi } from "@/api/posts";
@@ -17,6 +18,7 @@ function useDebounce<T>(value: T, delay: number) {
 }
 
 export function SearchPage() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const qParam = searchParams.get("q") || "";
   const typeParam = (searchParams.get("type") as any) || "all";
@@ -65,13 +67,14 @@ export function SearchPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="space-y-3">
-        <h1 className="text-xl font-semibold">Поиск</h1>
+        <h1 className="text-xl font-semibold">{t("search.title")}</h1>
         <div className="flex gap-2">
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="python, #python, Kirill, React"
-            className="flex-1 rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            placeholder={t("search.placeholder")}
+            aria-label={t("a11y.search")}
+            className="flex-1 rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2 min-w-0"
             onKeyDown={(e) => e.key === "Enter" && setResult(null)}
           />
         </div>

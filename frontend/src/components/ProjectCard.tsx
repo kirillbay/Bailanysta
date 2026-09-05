@@ -34,9 +34,10 @@ export function ProjectCard({ project, isOwner, onEdit, onDelete }: { project: P
         <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed whitespace-pre-wrap">{project.description}</p>
         {project.technologies.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {project.technologies.map((t) => (
-              <Badge key={t} className="text-[10px] px-2 py-0.5 rounded-full">{t}</Badge>
+            {project.technologies.slice(0, 6).map((t) => (
+              <Badge key={t} className="text-[10px] px-2 py-0.5 rounded-full truncate max-w-[120px]">{t}</Badge>
             ))}
+            {project.technologies.length > 6 && <Badge className="text-[10px]">+{project.technologies.length - 6}</Badge>}
           </div>
         )}
         <div className="flex flex-wrap gap-2 pt-1">

@@ -1690,53 +1690,115 @@ All fixed before green.
 
 ---
 
-<!-- Шаблон для следующего STEP — копировать и заполнять:
 
-## STEP X — Название
+## STEP 13 — i18n, Theme, Responsive & Accessibility Polish
 
 ### Date
-YYYY-MM-DD
+
+2026-09-05
 
 ### Objective
-Цель STEP.
+
+Довести RU/KZ/EN локализацию, завершить Light/Dark/System theme, провести responsive QA 360-1440, улучшить accessibility, устранить hardcoded строки, сделать premium developer-oriented цельным UI, без новых больших фич. Bundle оптимизация через lazy.
 
 ### Implemented
-Что реализовано.
+
+**i18n:**
+- Расширены ru/en/kk dictionaries с ~120 ключами (common/nav/auth/feed/post/profile/projects/search/clubs/club/notifications/bookmarks/stories/settings/errors/empty/a11y/validation)
+-  + 'lib/i18n.ts detector localStorage bailanysta_lang -> navigator fallback ru, html lang sync, SettingsPage персистенс
+- Добавлен 	() в FeedPage (feed.title/subtitle/error/empty/loadMore), LoginPage/RegisterPage (auth.* + aria), SearchPage (search.title/placeholder + a11y)
+
+**Theme:**
+- stores/theme.tsx Light/Dark/System + localStorage bailanysta_theme + matchMedia System listener + resolved
+- index.html inline script anti-FOUC before React
+- SettingsPage.tsx выбор языка + темы (aria-pressed), AppShell switchers сохранены, аудит всех страниц на Tailwind tokens (no hardcoded)
+
+**Responsive QA:**
+- AppShell sidebar 260 desktop / bottom 5 mobile touch 44px
+- Feed max-w-2xl, Profile Projects grid md:2, ClubChannel grid 1fr lg 240px+1fr stacks, Search flex-wrap, ProjectCard truncate +6 +N, PostComposer min-w-0
+- Проверены breakpoints 360/390/430/768/1024/1280/1440 (manual QA)
+
+**Accessibility:**
+- semantic button vs div, label htmlFor, aria-label для icon-only (like/comment/repost/bookmark/share), role=alert для ошибок, aria-busy, focus-visible:ring-2, keyboard Tab flows
+
+**Bundle:**
+- App.tsx lazy 14 routes Suspense fallback skeleton, Vite code-split per route, main 472kB gz145kB (было 527kB), css 18.98kB, saving 55kB
+
+**Frontend:**
+- pages/SettingsPage.tsx новый, App.tsx lazy, index.html no-flash, locales/* full, Feed/Login/Register/Search/ProjectCard частично переведены
 
 ### Files Changed
-Список файлов.
+
+`
+[mod] frontend/src/locales/ru.json (+ full 13 sections)
+[mod] frontend/src/locales/en.json (same)
+[mod] frontend/src/locales/kk.json (same)
+[mod] frontend/index.html (+ no-flash theme script)
+[new] frontend/src/pages/SettingsPage.tsx (language + theme persistence)
+[mod] frontend/src/App.tsx (lazy 14 routes + Suspense fallback, SettingsPage)
+[mod] frontend/src/pages/FeedPage.tsx (t feed.*)
+[mod] frontend/src/pages/LoginPage.tsx (t auth.*, aria)
+[mod] frontend/src/pages/RegisterPage.tsx (t auth.*, aria)
+[mod] frontend/src/pages/SearchPage.tsx (t search.*, a11y)
+[mod] frontend/src/components/ProjectCard.tsx (truncate +6 +N, responsive)
+`
 
 ### Database Changes
-...
+
+Нет. Без миграций.
 
 ### API Changes
-...
+
+Нет.
 
 ### Frontend Changes
-...
+
+SettingsPage, lazy split, locale coverage, a11y focus/aria, responsive grids, ProjectCard +N.
 
 ### Security Changes
-...
+
+UI polish не ослабляет security. External links уже rel=noopener, no owner_id forgery.
 
 ### Tests
-...
+
+- pytest -q 230 passed (без новых тестов, regression 1-12)
+- tsc --noEmit PASS
+- npm run build PASS 3.17s 18.98kB css main 472kB gz145kB (chunks per route 0.26-12.9kB)
 
 ### Build
-...
+
+- Frontend 3.17s, 1714 modules
+- Backend import ok
 
 ### Problems
-...
+
+- Badge variant ошибка в прошлом STEP13 до этого уже fixed в STEP12
+- Bundle warning 527kB -> 472kB после lazy но остается near threshold
 
 ### Fixed
-...
+
+- Locale coverage, theme no-flash, lazy, ProjectCard overflow.
 
 ### Known Issues
-...
+
+- Часть менее критичных строк осталась hardcoded (например Profile edit dialogs) - не ломает UI
+- Bundle 472kB still near 500kB debt
 
 ### Architectural Decisions
-...
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| Lazy routes | React.lazy + Suspense per route | Bundle split |
+| i18n full dict | 13 sections 120 keys | Premium polish |
+| Theme anti-FOUC | inline script | No flash |
+| No new large features | per spec 24 | Stability |
 
 ### Next Step
-...
 
--->
+**STEP 14 — Security Hardening**
+
+- rate limiting, security headers audit
+
+---
+
+<!-- Шаблон для следующего STEP

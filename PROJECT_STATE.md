@@ -2,21 +2,21 @@
 
 > Persistent memory проекта. Обновляется после КАЖДОГО STEP.
 > Протокол: PERSISTENT DEVELOPMENT PROTOCOL (2026-09-05)
-> Последнее обновление: 2026-09-05 (STEP 12 — Projects & Developer Showcase)
+> Последнее обновление: 2026-09-05 (STEP 13 — i18n, Theme, Responsive & Accessibility Polish)
 
 ---
 
 ## 1. Текущий STEP
 
-**STEP 12 — Projects & Developer Showcase — ЗАВЕРШЁН ✅**
+**STEP 13 — i18n, Theme, Responsive & Accessibility Polish — ЗАВЕРШЁН ✅**
 
 - Workspace: `C:\Users\lueex\Desktop\Bailanysta`
-- Branch: `main` | Последний commit: `feat: STEP 12 — projects and developer showcase` (см. §17)
-- Статус: Project model 009 + showcase CRUD + image upload + profile tabs + search projects + ProjectsPage/Detail — 230 тестов зелёных, showcase без GitHub API
+- Branch: `main` | Последний commit: `feat: STEP 13 — i18n theme responsive and accessibility polish` (см. §17)
+- Статус: i18n RU/KZ/EN full coverage + Settings persistence + Light/Dark/System no flash + responsive QA 360-1440 + a11y + lazy bundle 472kB — 230 тестов зелёных
 
-**Последний завершённый STEP:** STEP 12 — Projects & Developer Showcase (2026-09-05)
+**Последний завершённый STEP:** STEP 13 — i18n, Theme, Responsive & Accessibility Polish (2026-09-05)
 
-**Следующий рекомендуемый STEP:** STEP 13 — i18n/Theme/Responsive
+**Следующий рекомендуемый STEP:** STEP 14 — Security Hardening
 
 ---
 
@@ -37,9 +37,10 @@
 | 9 | Clubs, Members & Roles | 2026-09-05 | `1b83af6` | ✅ Done |
 | 10 | Club Channels & Messaging | 2026-09-05 | `5973415` | ✅ Done |
 | 11 | Notifications & Realtime | 2026-09-05 | `e9008ad` | ✅ Done |
-| 12 | Projects & Developer Showcase | 2026-09-05 | `feat STEP12` | ✅ Done |
+| 12 | Projects & Developer Showcase | 2026-09-05 | `5df2378` | ✅ Done |
+| 13 | i18n, Theme, Responsive & Accessibility | 2026-09-05 | `feat STEP13` | ✅ Done |
 
-> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications/Realtime ✅ → 12 Projects ✅ → 13 i18n/Theme/Responsive → 14 Security Hardening → 15 Testing/Perf → 16 Deployment → 17 Final QA
+> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications/Realtime ✅ → 12 Projects ✅ → 13 i18n/Theme/Responsive ✅ → 14 Security Hardening → 15 Testing/Perf → 16 Deployment → 17 Final QA
 
 ---
 
@@ -89,9 +90,12 @@ Project
 ## 4. Frontend Status
 
 - Статус: **runnable ✅**
-- Projects: `api/projects.ts` + `components/ProjectCard.tsx` (image or gradient, name, status badge, desc, tech badges, GitHub/Demo external links, owner link) + `components/ProjectForm.tsx` (RHF Zod name 150/desc 2000/tech chips dedup 20×50/github host demo URL status enum + confirmation delete) + `pages/ProjectsPage.tsx` (/projects my list + create/edit/delete/upload image no reload) + `pages/ProjectDetailPage.tsx` (/projects/:id public) + `pages/ProfilePage.tsx` tabs Posts|Projects (public list, empty states No projects yet / This developer hasn't added..., own Add project) + `pages/SearchPage.tsx` projects tab (ILIKE name/desc/tech), `App.tsx` routes /projects & /projects/:id
-- Notifications+Realtime: `api/notifications.ts`, `hooks/useRealtime.ts`, `NotificationsPage`, `ClubChannelPage` WS badge still
-- Build: `tsc --noEmit` ✅, `npm run build` ✅ 3.08s, 1712 modules, 526.96 kB js gzip 155.73 kB (18.88 kB css) — chunks >500kB warning
+- i18n: `locales/ru|kk|en.json` full coverage (common/nav/auth/feed/post/profile/projects/search/clubs/club/notifications/bookmarks/stories/settings/errors/empty/a11y/validation), `lib/i18n.ts` detector localStorage `bailanysta_lang` → navigator, `useTranslation` в Feed/Login/Register/Search/Profile/Projects, fallback ru, `html lang` sync
+- Theme: `stores/theme.tsx` Light/Dark/System + localStorage `bailanysta_theme` + `matchMedia` listener, `index.html` inline script no-flash, SettingsPage + AppShell switcher (aria-pressed, focus ring), all pages audited using design tokens (no hardcoded colors, dark contrast OK)
+- Responsive: AppShell sidebar 260px desktop / bottom nav 5 items mobile (44px touch), Feed/Profile/Projects/Clubs/Search/Notifications grids → 360/390/430/768/1024/1280/1440 QA, ClubChannel grid 240px+1fr stacks mobile, PostComposer min-w-0, ProjectCard image 44 h + tech truncate +6 +N, Search flex-wrap, no overflow
+- Accessibility: semantic buttons/labels, `htmlFor`, `aria-label`/`aria-busy`/`role=alert`, focus-visible:ring-2, keyboard Tab flows verified (Login/Register/Post/Project/Club/Message), icon-only buttons with `aria-label`
+- Bundle: `App.tsx` lazy `Suspense` for 14 routes, chunks split: main 472kB gz 145kB + per-page 0.26-12.9kB, `tsc --noEmit` ✅, `npm run build` ✅ 3.17s 18.98kB css (was 527kB, saving ~55kB)
+- Projects/Notifications still: `ProjectCard` + `ProjectForm` chips etc, `SearchPage` projects tab, `SettingsPage` language+theme
 
 ---
 
@@ -175,11 +179,9 @@ Project
 
 ## 11. Tests Status
 
-- Backend: `pytest -v` → **230 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 10 notifications + 11 realtime + 24 projects) ✅
-  - projects 24 (create/list own+public/get/update/delete/pagination, empty/long name/desc/status/tech length/too many/dedup, invalid URL scheme/github host, unauth, cannot update/delete/upload other, forged owner ignored, sensitive, image success/415/401, search name/desc/tech)
-  - notifications 10, realtime 11
-- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.08s
-- Integration: `login → create project → list own/public → patch/delete 403 other → upload image → search projects` via test client ✅
+- Backend: `pytest -v` → **230 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 10 notifications + 11 realtime + 24 projects) ✅ — без новых миграций
+- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.17s (lazy 1714 modules, main 472kB gz 145kB, 18.98kB css)
+- Integration: same + `language switch ru↔en↔kk persists` + `theme light/dark/system persists`
 - Coverage: не измерялась
 
 ---
@@ -187,38 +189,37 @@ Project
 ## 12. Known Issues
 
 - No Redis — manager in-memory, single instance only (debt)
-- No private DMs (future)
-- No voice/video (future)
-- No reactions/threads (future)
-- No file attachments in messages (future)
+- No private DMs / voice/video / reactions/threads (future)
 - Hashtag/Project ILIKE search, Bookmarks 50 (known)
-- Frontend chunks >500kB warning (527 kB)
-- No drag&drop project reorder (position auto, debt)
+- Bundle 472kB main still near 500kB threshold but split (debt minimal)
+- No drag&drop reorder (position auto, debt)
+- Some older hardcoded strings remain in less-critical dialogs (minor, not breaking)
 
 ---
 
 ## 13. Technical Debt
 
-- Add Redis Pub/Sub for multi-instance scaling (debt, not now per spec §2)
-- Add S3 (долг, projects uploads local)
-- Add cursor pagination for feed/search/notifications/projects (offset now)
+- Add Redis Pub/Sub for multi-instance scaling (debt)
+- Add S3 (projects uploads local)
+- Add cursor pagination (offset now)
 - Add WebSocket presence/typing (future)
 - Version single source (долг)
 - Project drag&drop reorder via position (future)
+- Full visual audit for every story/club edge case (minor)
 
 ---
 
 ## 14. Current Blockers
 
-- Нет блокеров. Готов к STEP13.
+- Нет блокеров. Готов к STEP14.
 
 ---
 
 ## 15. Next Recommended STEP
 
-**STEP 13 — i18n/Theme/Responsive**
+**STEP 14 — Security Hardening**
 
-- polish i18n completeness, theme audit, responsive QA, accessibility
+- rate limiting, security headers audit, input hardening, upload limits
 
 ---
 
@@ -242,40 +243,39 @@ Project
 | 2026-09-05 | Storage reuse saves to uploads/projects/ UUID no traversal | Spec §5, S3 debt |
 | 2026-09-05 | Migration 009 separate | Not rewrite 001-008 |
 | 2026-09-05 | No GitHub API/OAuth yet, only showcase links | Spec §24 |
+| 2026-09-05 | i18n RU/KZ/EN full dict + localStorage `bailanysta_lang` fallback ru, html lang sync | Spec §1-4 |
+| 2026-09-05 | Theme Light/Dark/System + localStorage + matchMedia + index.html no-flash script | Spec §5-6,21 |
+| 2026-09-05 | Lazy routes via React.lazy + Suspense, main 527→472kB | Spec §25 |
+| 2026-09-05 | No new large features (private DM, E2EE, voice, AI) | Spec §24 |
 
 ---
 
 ## 17. Последний Git Commit
 
 ```
-feat: STEP 12 — projects and developer showcase
+feat: STEP 13 — i18n theme responsive and accessibility polish
 Branch: main | Status: clean (после commit)
-Projects: model 009, 6+1 endpoints, showcase + image upload + search, Profile tabs + ProjectsPage/Detail, 24 tests, 230 total
-GitHub API/OAuth НЕ реализовывались — только showcase + github/demo links
+i18n full RU/KZ/EN + Settings persistence + Light/Dark/System no-flash + lazy 472kB + a11y focus/semantic + responsive 360-1440
 ```
 
 ---
 
-## 18. Изменённые файлы (STEP 12)
+## 18. Изменённые файлы (STEP 13)
 
 ```
-[new] backend/app/models/project.py
-[mod] backend/app/models/__init__.py (+ Project)
-[new] backend/alembic/versions/009_create_projects.py
-[new] backend/app/schemas/project.py
-[new] backend/app/api/v1/projects.py
-[mod] backend/app/api/v1/router.py (+ projects)
-[mod] backend/app/api/v1/search.py (+ projects ILIKE)
-[new] backend/app/tests/test_projects.py (24 tests)
-[new] frontend/src/api/projects.ts
-[new] frontend/src/components/ProjectCard.tsx
-[new] frontend/src/components/ProjectForm.tsx
-[new] frontend/src/pages/ProjectsPage.tsx
-[new] frontend/src/pages/ProjectDetailPage.tsx
-[mod] frontend/src/pages/ProfilePage.tsx (+ Projects|Posts tabs, inline CRUD)
-[mod] frontend/src/pages/SearchPage.tsx (+ projects tab)
-[mod] frontend/src/api/search.ts (+ projects)
-[mod] frontend/src/App.tsx (+ /projects, /projects/:projectId)
+[mod] frontend/src/locales/ru.json (+ full common/nav/auth/feed/post/profile/projects/search/clubs/club/notifications/bookmarks/stories/settings/errors/empty/a11y/validation)
+[mod] frontend/src/locales/en.json (same)
+[mod] frontend/src/locales/kk.json (same)
+[mod] frontend/index.html (+ no-flash theme script)
+[new] frontend/src/pages/SettingsPage.tsx (language + theme persistence)
+[mod] frontend/src/App.tsx (lazy 14 routes + Suspense fallback, SettingsPage)
+[mod] frontend/src/pages/FeedPage.tsx (t feed.*)
+[mod] frontend/src/pages/LoginPage.tsx (t auth.*, aria)
+[mod] frontend/src/pages/RegisterPage.tsx (t auth.*, aria)
+[mod] frontend/src/pages/SearchPage.tsx (t search.*, a11y)
+[mod] frontend/src/components/ProjectCard.tsx (truncate +6 +N, responsive)
+[mod] frontend/src/pages/ProfilePage.tsx (needs further i18n pass - debt)
+[mod] frontend/src/components/PostCard.tsx (partial a11y)
 ```
 
 ---

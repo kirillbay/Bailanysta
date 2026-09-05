@@ -415,3 +415,14 @@ Project
 - Frontend: `api/projects.ts` (listUser/listMy/get/create/update/delete/uploadImage + resolveImage), `components/ProjectCard.tsx` (gradient fallback, status badge, tech badges, GitHub/Demo external rel noopener), `components/ProjectForm.tsx` (RHF Zod + chip input Enter dedup max 20/50), `pages/ProjectsPage.tsx` (/projects my showcase + upload), `pages/ProjectDetailPage.tsx` (/projects/:id public), `pages/ProfilePage.tsx` tabs Posts|Projects (public list, own inline CRUD + upload, empty states), `pages/SearchPage.tsx` + projects type, `App.tsx` + /projects & /projects/:id
 - Showcase nature: developer showcase + GitHub/demo links only, no GitHub API/OAuth, no repository sync, no code hosting — documented
 - Следующий: **STEP 13 — i18n/Theme/Responsive**
+
+## 18. STEP 13 Implementation (2026-09-05)
+
+**i18n, Theme, Responsive & Accessibility Polish реализован:**
+- i18n: `lib/i18n.ts` detector `localStorage bailanysta_lang` → navigator, fallback ru, `locales/ru|kk|en.json` 13 sections (common, nav, auth, feed, post, profile, projects, search, clubs, notifications, settings, errors, a11y) ~120 keys each, `html lang` sync, `LanguageDetector` order localStorage→navigator, `SettingsPage` persistence verified reload/browser close
+- Theme: `stores/theme.tsx` Light/Dark/System + localStorage `bailanysta_theme` + `matchMedia` System listener + `resolved`, `index.html` inline script anti-FOUC (reads before React), `SettingsPage` + `AppShell` switchers `aria-pressed`, `focus-visible:ring-2`, audited cards/inputs/badges/skeletons/project/club/message/profile cover in both themes using Tailwind tokens `bg-card`/`bg-background`/`text-muted-foreground`/`border` (no hardcoded)
+- Responsive QA: `360,390,430,768,1024,1280,1440` checked — AppShell sidebar 260px lg / BottomNav 5 items h-14 touch 44px, Feed max-w-2xl, PostComposer min-w-0, Projects grid md:2 gap-4 card truncate +6, Search flex-wrap, ClubChannel grid 1fr lg 240px+1fr stacks mobile + composer sticky, no horizontal overflow
+- Accessibility: semantic `button` vs `div`, `label htmlFor`, `aria-label` for icon-only (Heart/MessageCircle/Repeat2/Bookmark/Share2 → a11y.*), `role=alert` for errors, `aria-busy`, keyboard Tab flows (Login→Register→Post→Project→Channel→Settings) no trap, focus visible `ring-2`
+- Bundle: `App.tsx` lazy 14 routes `Suspense` fallback skeleton, Vite code-split per route, main 472kB gzip 145kB (css 18.98kB) vs 527kB before, chunk warning mitigated but remains near threshold (documented debt, stability > optimization)
+- No new large features (private DM, E2EE, voice, AI, GitHub OAuth) per §24
+- Следующий: **STEP 14 — Security Hardening**

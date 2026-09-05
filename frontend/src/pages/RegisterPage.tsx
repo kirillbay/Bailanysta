@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { authApi } from "@/api/auth";
@@ -19,6 +20,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function RegisterPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -45,43 +47,45 @@ export function RegisterPage() {
     <div className="mx-auto max-w-md space-y-6 pt-6">
       <Card>
         <CardHeader>
-          <CardTitle>Регистрация</CardTitle>
-          <CardDescription>Создай аккаунт в Bailanysta.</CardDescription>
+          <CardTitle>{t("auth.registerTitle")}</CardTitle>
+          <CardDescription>{t("auth.registerDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Username</label>
+              <label htmlFor="reg-username" className="text-sm font-medium">{t("auth.username")}</label>
               <input
+                id="reg-username"
                 {...register("username")}
-                placeholder="kirill_dev"
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                placeholder={t("auth.usernamePlaceholder")}
+                autoComplete="username"
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
               />
-              {errors.username && <p className="text-xs text-red-500">{errors.username.message}</p>}
+              {errors.username && <p className="text-xs text-red-500" role="alert">{errors.username.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Email</label>
-              <input {...register("email")} placeholder="you@example.com" className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
-              {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
+              <label htmlFor="reg-email" className="text-sm font-medium">{t("auth.email")}</label>
+              <input id="reg-email" {...register("email")} placeholder="you@example.com" autoComplete="email" className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2" />
+              {errors.email && <p className="text-xs text-red-500" role="alert">{errors.email.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Пароль</label>
-              <input {...register("password")} type="password" placeholder="минимум 8 символов" className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
-              {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
+              <label htmlFor="reg-password" className="text-sm font-medium">{t("auth.password")}</label>
+              <input id="reg-password" {...register("password")} type="password" placeholder={t("auth.passwordHint")} autoComplete="new-password" className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2" />
+              {errors.password && <p className="text-xs text-red-500" role="alert">{errors.password.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Display name (необязательно)</label>
-              <input {...register("display_name")} placeholder="Кирилл" className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+              <label htmlFor="reg-display" className="text-sm font-medium">{t("auth.displayNameOptional")}</label>
+              <input id="reg-display" {...register("display_name")} placeholder={t("auth.displayNamePlaceholder")} className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2" />
             </div>
-            {serverError && <p className="rounded-xl bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-300">{serverError}</p>}
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Создание..." : "Создать аккаунт"}
+            {serverError && <p className="rounded-xl bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-300" role="alert">{serverError}</p>}
+            <Button type="submit" className="w-full" disabled={isSubmitting} aria-busy={isSubmitting}>
+              {isSubmitting ? t("auth.creatingAccount") : t("auth.signUpAction")}
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Уже есть аккаунт?{" "}
-            <Link to="/login" className="font-medium text-foreground underline">
-              Войти
+            {t("auth.hasAccount")}{" "}
+            <Link to="/login" className="font-medium text-foreground underline focus-visible:ring-2 focus-visible:ring-ring rounded">
+              {t("auth.signIn")}
             </Link>
           </p>
         </CardContent>
