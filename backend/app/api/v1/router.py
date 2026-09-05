@@ -11,6 +11,8 @@ from app.api.v1.search import router as search_router
 from app.api.v1.hashtags import router as hashtags_router
 from app.api.v1.stories import router as stories_router
 from app.api.v1.clubs import router as clubs_router
+from app.api.v1.club_channels import router as channels_router
+from app.api.v1.club_messages import router as club_messages_router
 
 api_router = APIRouter()
 
@@ -26,3 +28,5 @@ api_router.include_router(search_router, tags=["search"])
 api_router.include_router(hashtags_router, tags=["hashtags"])
 api_router.include_router(stories_router, tags=["stories"])
 api_router.include_router(clubs_router, tags=["clubs"])
+api_router.include_router(channels_router, tags=["channels"])
+api_router.include_router(club_messages_router, tags=["club-messages"])

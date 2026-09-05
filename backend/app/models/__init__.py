@@ -6,5 +6,7 @@ from app.models.social import PostLike, Comment, PostRepost, Bookmark  # noqa: F
 from app.models.follow import Follow  # noqa: F401
 from app.models.story import Story  # noqa: F401
 from app.models.club import Club, ClubMember, slugify  # noqa: F401
+from app.models.club_channel import ClubChannel, channel_slugify  # noqa: F401
+from app.models.club_message import ClubMessage  # noqa: F401
 
-__all__ = ["User", "Post", "PostMedia", "Hashtag", "post_hashtags", "PostLike", "Comment", "PostRepost", "Bookmark", "Follow", "Story", "Club", "ClubMember", "slugify"]
+__all__ = ["User", "Post", "PostMedia", "Hashtag", "post_hashtags", "PostLike", "Comment", "PostRepost", "Bookmark", "Follow", "Story", "Club", "ClubMember", "slugify", "ClubChannel", "channel_slugify", "ClubMessage"]

@@ -370,3 +370,11 @@ backend/
 - Security: HttpOnly Lax Secure prod, CORS credentials, no JWT in localStorage/URL, uniform Invalid credentials, no stack trace, no password leak
 - Tests: 25 auth tests (см. DEVELOPMENT_LOG), total 39 passed
 - Следующий: **STEP 4 — Profiles**
+
+## 15. STEP 10 Implementation (2026-09-05)
+
+**Channels/Messaging реализован:**
+- Models: `ClubChannel` (club_id FK CASCADE, name/slug/description/position, Unique club+slug, index club+position), `ClubMessage` (channel_id FK CASCADE, author_id FK CASCADE, content 1-10000, is_edited, created/updated, index channel+created, author joined)
+- Frontend: `api/clubChannels.ts` (9 funcs), `pages/ClubPage.tsx` ChannelsSection (list Link, create owner/admin, edit/delete), `pages/ClubChannelPage.tsx` (grid 240px+1fr, channels sidebar, messages, composer Enter/Shift+Enter, 50 le100, is_edited)
+- Relationship: `Club 1—* ClubChannel 1—* ClubMessage N—1 User`, CASCADE delete channel → messages, no realtime (HTTP poll, STEP11 will add WebSocket)
+- Следующий: **STEP 11 — Notifications & Realtime (WebSocket)**

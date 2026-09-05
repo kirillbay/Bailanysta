@@ -13,6 +13,7 @@ import { SearchPage } from "@/pages/SearchPage";
 import { HashtagPage } from "@/pages/HashtagPage";
 import { ClubsPage } from "@/pages/ClubsPage";
 import { ClubPage } from "@/pages/ClubPage";
+import { ClubChannelPage } from "@/pages/ClubChannelPage";
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -34,6 +35,7 @@ const router = createBrowserRouter([
       { path: "/hashtags/:name", element: <HashtagPage /> },
       { path: "/clubs", element: <ClubsPage /> },
       { path: "/clubs/:slug", element: <ClubPage /> },
+      { path: "/clubs/:slug/channels/:channelSlug", element: <ClubChannelPage /> },
       {
         path: "/projects",
         element: <PlaceholderPage titleKey="nav.projects" fallbackTitle="Projects" description="Витрина проектов — GitHub, demo, технологии." />,

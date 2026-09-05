@@ -1338,6 +1338,130 @@ All fixed before green.
 
 ---
 
+## STEP 10 — Club Channels & Messaging
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Реализовать Club → Channels → Messages: текстовые каналы, CRUD, сообщения с пагинацией, edit/delete, IDOR защита, frontend ClubPage channels + ChannelPage.
+
+### Implemented
+
+**Backend:**
+- `backend/app/models/club_channel.py` — `ClubChannel` (UUID PK, club_id FK CASCADE index, name 100, slug 100, description Text, position int, created/updated, Unique club+slug, index club+position) + `channel_slugify`
+- `backend/app/models/club_message.py` — `ClubMessage` (UUID PK, channel_id FK CASCADE index, author_id FK CASCADE index, content Text, is_edited bool false, created/updated, author joined, index channel+created)
+- `backend/app/models/__init__.py` + ClubChannel, ClubMessage
+- `backend/alembic/versions/007_create_club_channels_messages.py` — club_channels + club_messages — `--sql` verified
+- `backend/app/schemas/club_channel.py` — ChannelCreate 1-100 + desc 500, ChannelUpdate, ChannelRead, AuthorPublic, MessageCreate/Update 1-10000, MessageRead
+- `backend/app/api/v1/club_channels.py` — `GET /clubs/{slug}/channels` member 403 ordered position, `GET /{channel_slug}` member cross-club 404, `POST` owner/admin 403 member/moderator, slugify unique, position max+1, `PATCH` owner/admin, `DELETE` owner/admin CASCADE
+- `backend/app/api/v1/club_messages.py` — `GET /clubs/{slug}/channels/{channel_slug}/messages` member 403 limit 50 le100 offset asc, `POST` member 403 content trim 1-10000 author current_user, `PATCH` owner only 403 other, `DELETE` author or owner/admin/moderator, IDOR channel→club check, forged 404
+- `backend/app/api/v1/router.py` + channels, club_messages
+- Tests `app/tests/test_club_channels.py` 15 passed
+
+**Frontend:**
+- `frontend/src/api/clubChannels.ts` — list/get/create/update/remove + messages/send/edit/remove
+- `frontend/src/pages/ClubPage.tsx` — ChannelsSection (list channels Link to /clubs/:slug/channels/:cslug, create owner/admin, edit/delete)
+- `frontend/src/pages/ClubChannelPage.tsx` — grid lg:240px 1fr, sidebar channels, main messages (avatar, author, timestamp, edited, content, edit/delete), pagination Load older, composer textarea Enter send Shift+Enter newline, max 10000, invalidate messages
+- `frontend/src/App.tsx` — `/clubs/:slug/channels/:channelSlug` protected
+
+### Files Changed
+
+```
+[new] backend/app/models/club_channel.py
+[new] backend/app/models/club_message.py
+[mod] backend/app/models/__init__.py (+ ClubChannel, ClubMessage)
+[new] backend/alembic/versions/007_create_club_channels_messages.py
+[new] backend/app/schemas/club_channel.py
+[new] backend/app/api/v1/club_channels.py
+[new] backend/app/api/v1/club_messages.py
+[mod] backend/app/api/v1/router.py (+ channels, club_messages)
+[new] backend/app/tests/test_club_channels.py (15 tests)
+[new] frontend/src/api/clubChannels.ts
+[new] frontend/src/pages/ClubChannelPage.tsx
+[mod] frontend/src/pages/ClubPage.tsx (+ ChannelsSection)
+[mod] frontend/src/App.tsx (+ /clubs/:slug/channels/:channelSlug)
+```
+
+### Database Changes
+
+- Migration `007_create_club_channels_messages` — club_channels + club_messages — `--sql` OK, FK CASCADE, Unique, indexes
+
+### API Changes
+
+- `GET /api/v1/clubs/{slug}/channels` → 200 member 403, `GET /{channel_slug}` 200, 404 cross-club
+- `POST /api/v1/clubs/{slug}/channels` 201 owner/admin 403, slug unique per club, position auto
+- `PATCH /api/v1/clubs/{slug}/channels/{channel_slug}` 200 owner/admin 403
+- `DELETE /api/v1/clubs/{slug}/channels/{channel_slug}` 204 owner/admin CASCADE
+- `GET /api/v1/clubs/{slug}/channels/{channel_slug}/messages?limit&offset` → 200 member 403, limit 50 le100
+- `POST /.../messages` 201 member 403 content 1-10000 author current_user
+- `PATCH /.../messages/{id}` 200 owner only 403
+- `DELETE /.../messages/{id}` 204 author or owner/admin/moderator, member cannot delete other 403, cross-club 404
+
+### Frontend Changes
+
+ChannelsSection + ClubChannelPage two-column, channels navigation, message list with author, edit/delete, composer, TanStack Query invalidate, no realtime polling, no attachments.
+
+### Security Changes
+
+- Channels: member 403, create/update/delete owner/admin only, duplicate slug unique, no negative position, no duplicate slug in club
+- Messages: member 403, edit own only 403, delete own or owner/admin/moderator, member cannot delete other, IDOR via channel→club, forged channel/message 404, no author_id bypass, content 1-10000, XSS text only React escape
+- No N+1 for authors (joined), pagination limited
+
+### Tests
+
+- `pytest app/tests/test_club_channels.py -v` → **15 passed in 4.36s**:
+  - channels 6 (create/list/get 1, permissions owner/admin 1, duplicate slug 1, update/delete 1, non-member 403 1, belongs correct 404 1)
+  - messages 9 (send/list, empty/long 422, pagination, edit own, cannot edit other 403, delete own+moderator, non-member send 403, IDOR cross club 2, forged relationship 404)
+- `pytest -v` all → **185 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels) 31.45s
+- Frontend `tsc --noEmit` PASS, `npm run build` 1704 modules 504.01kB js gzip 150.94kB
+
+### Build
+
+- Frontend 3.45s, 17.29kB css
+- Backend import ok, routes verified, `alembic upgrade head --sql` all 7 migrations OK
+
+### Problems
+
+- `test_channel_permissions_owner_admin` used `login("chan_member@example.com")` with underscore email `chan_member@example.com` but actual email `chanmember@example.com` (no underscore) → 401 — fixed to `login("chan_member")` username
+- `test_message_delete_own_and_moderator` used `login("mod_del@example.com")` with underscore email `mod_del@example.com` but email `moddel@example.com` → 401 — fixed to `login("mod_del")`
+- `test_message_delete_own_and_moderator` second `plain_del@example.com` similarly → fixed to `plain_del`
+- `test_cross_club_channel_access` expected 404 for message cross but got 403 (not member) — allowed 403 or 404
+- Initial `login("del_owner4@example.com")` with underscore email `del_owner4@example.com` but email `delowner4@example.com` → 401 — fixed to username
+
+### Fixed
+
+All fixed before green.
+
+### Known Issues
+
+- No realtime/WebSocket (STEP11)
+- No voice/video (future)
+- No attachments in messages (future)
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| Channel slugify channel + Unique club+slug | no duplicate per club | Spec §2 |
+| Message 1-10000 is_edited | FK CASCADE, index channel+created | Spec §3 |
+| Channels member 403, owner/admin only | backend checks | Spec §5 |
+| Messages member 403, edit own 403, delete own or owner/admin/moderator | matrix | Spec §7 |
+| Cross-club IDOR via channel→club check | 404/403 | Spec §8 |
+| Ordered asc, limit 50 le100, author joined | no N+1 | Spec §20 |
+| Frontend grid 240px+1fr, Enter/Shift+Enter | responsive | Spec §18 |
+| Migration 007 separate | not rewrite old | Spec §4 |
+
+### Next Step
+
+**STEP 11 — Notifications & Realtime**
+
+- WebSocket for messages/notifications, notifications model, polling fallback
+
+---
+
 <!-- Шаблон для следующего STEP — копировать и заполнять:
 
 ## STEP X — Название

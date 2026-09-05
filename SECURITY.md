@@ -171,3 +171,17 @@ STEP3 — базовая защита без внешней инфраструк
 - Validation max lengths (username 50, password 128) — reject huge payloads
 
 Full rate limiting (5/min/IP на login, счётчик неудач, slowapi/redis) — отложено в STEP14 как **security debt**, т.к. требует инфраструктуры (Redis / in-memory store) и не должно блокировать auth foundation. Архитектура готова: middleware место зарезервировано в `app/main.py`, `SECURITY.md §8`.
+
+## 15. STEP 10 — Channels / Messages Security
+
+**Channel membership:** `GET /clubs/{slug}/channels` requires member (403 else), ordered position, no duplicate slug per club (Unique), position auto max+1, no negative.
+
+**Channel permissions:** `POST/PATCH/DELETE` owner/admin only (403 member/moderator), `member_role` check via ClubMember, no privilege escalation, IDOR via club_id check (channel must belong to club).
+
+**Messages:** `GET /messages` member 403, limit 50 le100 offset, ordered asc, author joined (no N+1), `POST` member 403, content trim 1-10000, author current_user (no author_id bypass), `PATCH` owner only 403 other, `DELETE` author or owner/admin/moderator (member cannot delete other), IDOR via `message.channel_id == channel.id` (forged channel 404), cross-club 404/403.
+
+**Content:** plain text, no raw HTML, React escape, XSS safe, no `dangerouslySetInnerHTML`.
+
+**Storage:** no attachments in MVP (future), channels not executable, no path traversal (slugify), UUID not needed for messages (already UUID).
+
+**Realtime:** not in STEP10 — HTTP only, no WebSocket, no Redis, documented for STEP11.

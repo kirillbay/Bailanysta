@@ -1,11 +1,79 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clubsApi } from "@/api/clubs";
+import { clubChannelsApi } from "@/api/clubChannels";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { useAuth } from "@/stores/auth";
+
+function ChannelsSection({ slug, isAdmin }: { slug: string; isAdmin: boolean }) {
+  const qc = useQueryClient();
+  const query = useQuery({ queryKey: ["channels", slug], queryFn: () => clubChannelsApi.list(slug) });
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const [editing, setEditing] = useState<string | null>(null);
+
+  const createMut = useMutation({
+    mutationFn: () => clubChannelsApi.create(slug, name, desc || undefined),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["channels", slug] });
+      setName("");
+      setDesc("");
+    },
+  });
+
+  return (
+    <div className="rounded-2xl border bg-card p-4 space-y-3">
+      <h2 className="text-sm font-semibold">Channels</h2>
+      {query.isPending && <Skeleton className="h-20 w-full" />}
+      {query.data?.map((ch) => (
+        <div key={ch.slug} className="flex items-center gap-3 rounded-xl bg-secondary p-3">
+          <Link to={`/clubs/${slug}/channels/${ch.slug}`} className="flex-1">
+            <p className="text-sm font-medium"># {ch.name}</p>
+            {ch.description && <p className="text-xs text-muted-foreground">{ch.description}</p>}
+          </Link>
+          {isAdmin && (
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const newName = prompt("New name", ch.name);
+                  if (newName) clubChannelsApi.update(slug, ch.slug, { name: newName }).then(() => qc.invalidateQueries({ queryKey: ["channels", slug] }));
+                }}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (confirm("Delete channel?")) clubChannelsApi.remove(slug, ch.slug).then(() => qc.invalidateQueries({ queryKey: ["channels", slug] }));
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          )}
+        </div>
+      ))}
+      {isAdmin && (
+        <div className="space-y-2 border-t pt-3">
+          <p className="text-xs font-medium">Создать канал (owner/admin)</p>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="general" className="w-full rounded-xl border px-3 py-1.5 text-sm" />
+          <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Описание (необязательно)" className="w-full rounded-xl border px-3 py-1.5 text-sm" />
+          <Button size="sm" onClick={() => createMut.mutate()} disabled={createMut.isPending || !name.trim()}>
+            Создать
+          </Button>
+          {createMut.isError && <p className="text-xs text-red-500">{(createMut.error as Error).message}</p>}
+        </div>
+      )}
+      {!isAdmin && query.data?.length === 0 && <p className="text-xs text-muted-foreground">Пока нет каналов</p>}
+    </div>
+  );
+}
 
 export function ClubPage() {
   const { slug } = useParams();
@@ -100,14 +168,7 @@ export function ClubPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border bg-card p-4">
-        <h2 className="text-sm font-semibold">Channels — coming next (STEP 10)</h2>
-        <p className="text-xs text-muted-foreground">Текстовые каналы появятся в следующем этапе.</p>
-        <div className="mt-2 grid gap-2">
-          <div className="rounded-xl bg-secondary p-3 text-xs">general · placeholder</div>
-          <div className="rounded-xl bg-secondary p-3 text-xs">announcements · placeholder</div>
-        </div>
-      </div>
+      <ChannelsSection slug={club.slug} isAdmin={isAdmin} />
 
       <Card>
         <CardContent className="p-4 space-y-3">
