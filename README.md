@@ -2,12 +2,12 @@
 
 > Modern, minimal, premium social network for developers, designers, AI/ML engineers, DevOps, QA, founders and everyone passionate about technology.
 
-![Status](https://img.shields.io/badge/status-STEP%200%20%E2%80%94%20initialized-blue)
+![Status](https://img.shields.io/badge/status-STEP%2011%20%E2%80%94%20notifications%20%26%20realtime-green)
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI%20%2B%20PostgreSQL-0ea5e9)
 ![i18n](https://img.shields.io/badge/i18n-ru%20%7C%20kk%20%7C%20en-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**Live demo:** *deploy planned in upcoming STEPs — Vercel (frontend) + Render/Railway (backend) + Neon (PostgreSQL)*
+**Live demo:** *deploy planned in upcoming STEPs — Vercel (frontend) + Render/Railway (backend) + Neon (PostgreSQL) — backend 206 tests, frontend 509kB, WebSocket /ws live*
 
 ---
 
@@ -31,15 +31,17 @@ Inspired by the best of Threads (feed), Telegram (DM), Discord (clubs), GitHub (
 
 ---
 
-## 🚀 Features
+## 🚀 Features (STEP 11)
 
 | Area | MVP (P1) | Next (P2) | Future (P3) |
 |------|----------|-----------|-------------|
 | Core | Auth, profiles, posts, feed, likes/comments/follows | — | — |
-| Social | Bookmarks, hashtags, mentions | Stories, search, projects | Recommendations |
-| Communities | — | Clubs + channels + roles | Voice channels |
-| Messaging | — | DMs, club messages, notifications | E2EE, realtime WS |
-| UX | Responsive, skeletons, i18n, dark/light | — | Mobile app |
+| Social | Bookmarks, hashtags, mentions, stories | Search, follow, projects, notifications | Recommendations |
+| Communities | Clubs + channels + roles + messages | — | Voice channels |
+| Messaging | Club messages, notifications, realtime WS (no Redis, in-memory) | Private DMs | E2EE |
+| UX | Responsive, skeletons, i18n, dark/light, realtime badge | — | Mobile app |
+
+**Implemented (206 tests, WebSocket live):** Auth Argon2id+JWT HttpOnly, Profiles, Posts/Media/Hashtags, Feed global, Likes/Comments/Reposts/Bookmarks, Follow/Search/Hashtags, Stories 24h, Clubs + Channels + Messages (Discord-like), Notifications (follow/like/comment), Realtime WebSocket `/ws` (channel subscribe, message.created/updated/deleted, notification.created), HTTP fallback, no Redis (MVP)
 
 See `PROJECT_STATE.md` for current progress.
 
@@ -245,11 +247,14 @@ Implemented/planned (see `SECURITY.md`):
 
 ---
 
-## 🐛 Known Issues & Limitations
+## 🐛 Known Issues & Limitations (STEP 11)
 
-- STEP 0 — no runnable app yet; tracking in `PROJECT_STATE.md`.
-- E2EE not implemented (privacy-focused architecture, not E2E yet — see SECURITY.md §9).
-- Voice channels: schema placeholder only until P1 stable.
+- No Redis — realtime manager in-memory, single instance only (future Redis Pub/Sub)
+- No private DMs yet (future, HTTP + WS ready for clubs)
+- No voice/video (future)
+- No reactions/threads/file attachments in club messages (future)
+- No E2EE — privacy-focused architecture, not E2E yet — see SECURITY.md §9
+- Hashtag search is ILIKE (no ES), bookmarks 50 limit, frontend chunks >500kB warning
 
 ---
 

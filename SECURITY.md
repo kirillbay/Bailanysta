@@ -1,6 +1,6 @@
 # Bailanysta — SECURITY
 
-> Дата: 2026-09-05 | STEP 3 — Authentication
+> Дата: 2026-09-05 | STEP 11 — Notifications & Realtime
 > Этот документ фиксирует security principles и checklist, обязательные с первого дня (MASTER_PROMPT §31-§32).
 
 ---
@@ -139,9 +139,16 @@
 - STEP 1: Argon2id, JWT cookies, CORS, базовые headers ✅ done
 - STEP 2: DB + User model + Alembic ✅ done
 - STEP 3: Authentication full (Argon2id, JWT HttpOnly, register/login/me/logout) ✅ done
-- STEP 4: Profiles editor
+- STEP 4: Profiles editor ✅ done
+- STEP 5: Posts & Media ✅ done
+- STEP 6: Feed & Social ✅ done
+- STEP 7: Follow/Search ✅ done
+- STEP 8: Stories ✅ done
+- STEP 9: Clubs ✅ done
+- STEP 10: Channels/Messaging ✅ done
+- STEP 11: Notifications & Realtime (WS, manager, no Redis) ✅ done
 - STEP 14: Rate limiting (full), pagination limits, IDOR hardening
-- STEP 14+: WS auth, club permissions, security headers audit
+- STEP 14+: Club permissions, security headers audit
 
 ## 13. STEP 3 — CSRF Decision
 
@@ -185,3 +192,19 @@ Full rate limiting (5/min/IP на login, счётчик неудач, slowapi/re
 **Storage:** no attachments in MVP (future), channels not executable, no path traversal (slugify), UUID not needed for messages (already UUID).
 
 **Realtime:** not in STEP10 — HTTP only, no WebSocket, no Redis, documented for STEP11.
+
+## 16. STEP 11 — Notifications & Realtime Security
+
+**WebSocket auth:** same `decode_token` (HS256, explicit alg, sub, type, is_active), `?token=` query or `access_token` HttpOnly cookie, `is_active` check, `type==access`, close 4401 on fail, no user_id forgery, no second auth system, no `alg=none`.
+
+**Channel authorization:** `subscribe` requires `channel_id` UUID, verify `ClubChannel` exists + `ClubMember` membership (`ClubMember.club_id == channel.club_id, user_id == current_user.id`), cross-club 404/403, not member 403, `channel_id` required, `Invalid channel_id` 422, `Channel not found` 404, `Not a member` 403, `Unknown type` error, payload max 10k.
+
+**Notifications IDOR:** `GET /notifications` only own (`recipient_id == current_user.id`), `GET /unread-count` only own, `PATCH /{id}/read` checks `recipient_id == current_user.id` (403 else), `POST /read-all` only current, `DELETE /{id}` only own, `actor_id` cannot be forged (backend determines from `current_user`), no private fields leak, no self-notification (follow/like/comment check `recipient != actor`).
+
+**Realtime notifications:** `manager.send_to_user` only to `recipient_id`'s `user_connections`, `notification.created` event only to that user, no broadcast to others, `is_read` false initially, no secrets in payload.
+
+**Message realtime:** `POST /clubs/.../messages` DB commit before `manager.broadcast_channel` (no ghost), `broadcast_channel` to `channel_subscribers` only (member check at subscribe time, not at broadcast, but channel membership already verified at subscribe, and broadcast is to channel's subscribers which are members), dedup via `message.id` on frontend, no HTML (text), XSS safe, max 10k, no giant JSON, `message.updated`/`deleted` similarly.
+
+**Rate/abuse:** WS max payload 10k, invalid JSON → error, unknown type → error, no giant payload, HTTP message limits already 1-10000, no bypass via WS (WS only subscribes, not creates messages via WS; creation via HTTP POST, so HTTP validation still applies, no WS message creation endpoint to bypass).
+
+**No Redis:** in-memory `manager` (user_connections, channel_subscribers, Lock) — single instance only, documented debt for future Redis Pub/Sub, no distributed event bus, no Celery, no Socket.IO.

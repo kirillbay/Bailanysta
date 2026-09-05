@@ -18,6 +18,9 @@ import {
 import { useTheme } from "@/stores/theme";
 import { useAuth } from "@/stores/auth";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { notificationsApi } from "@/api/notifications";
+import { useNotificationsRealtime } from "@/hooks/useRealtime";
 
 const navItems = [
   { to: "/", icon: Home, key: "nav.feed" },
@@ -89,6 +92,8 @@ function ThemeSwitcher() {
 function Sidebar() {
   const { t } = useTranslation();
   const { user, logout, isAuthenticated } = useAuth();
+  const notifQuery = useQuery({ queryKey: ["notifications-unread"], queryFn: () => notificationsApi.unreadCount(), enabled: isAuthenticated });
+  useNotificationsRealtime();
   return (
     <aside className="hidden w-[260px] shrink-0 flex-col gap-4 border-r bg-card/50 p-4 lg:flex">
       <div className="flex items-center gap-2.5 px-2 py-2">
@@ -102,21 +107,26 @@ function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-1">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-                isActive ? "bg-foreground text-background" : "hover:bg-accent text-muted-foreground hover:text-foreground",
-              )
-            }
-          >
-            <item.icon className="h-4 w-4" />
-            {t(item.key, item.key)}
-          </NavLink>
-        ))}
+        {navItems.map((item) => {
+          const count = item.to === "/notifications" ? notifQuery.data?.count : undefined;
+          const displayCount = count && count > 99 ? "99+" : count;
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                  isActive ? "bg-foreground text-background" : "hover:bg-accent text-muted-foreground hover:text-foreground",
+                )
+              }
+            >
+              <item.icon className="h-4 w-4" />
+              {t(item.key, item.key)}
+              {count ? <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] text-white">{displayCount}</span> : null}
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="mt-auto flex flex-col gap-3 pt-4">

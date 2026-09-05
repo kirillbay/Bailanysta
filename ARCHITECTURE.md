@@ -378,3 +378,16 @@ backend/
 - Frontend: `api/clubChannels.ts` (9 funcs), `pages/ClubPage.tsx` ChannelsSection (list Link, create owner/admin, edit/delete), `pages/ClubChannelPage.tsx` (grid 240px+1fr, channels sidebar, messages, composer Enter/Shift+Enter, 50 le100, is_edited)
 - Relationship: `Club 1—* ClubChannel 1—* ClubMessage N—1 User`, CASCADE delete channel → messages, no realtime (HTTP poll, STEP11 will add WebSocket)
 - Следующий: **STEP 11 — Notifications & Realtime (WebSocket)**
+
+## 16. STEP 11 Implementation (2026-09-05)
+
+**Notifications & Realtime реализован:**
+- Models: `Notification` (recipient_id FK CASCADE, actor_id FK SET NULL, type, title/message, entity_type/id, is_read, created_at, indexes recipient+created/read)
+- Services: `services/notifications.py` (create_notification no self, notify_follow/like/comment centralized)
+- APIs: `api/v1/notifications.py` (GET list/unread-count, PATCH read, POST read-all, DELETE), `api/v1/realtime.py` (WebSocket /ws, auth via cookie/?token, 4401, subscribe with ClubChannel+ClubMember check, broadcast)
+- Realtime Manager: `realtime/manager.py` (user_connections, channel_subscribers, Lock, connect/disconnect/subscribe/broadcast/send_to_user) — in-memory, no Redis
+- Frontend: `api/notifications.ts`, `hooks/useRealtime.ts` (getWsUrl http→ws, useChannelRealtime backoff 1s→16s, useNotificationsRealtime), `pages/NotificationsPage.tsx` (list, unread badge, mark read/all, delete, entity link), `pages/ClubChannelPage.tsx` + `useChannelRealtime` status Connected/Reconnecting/Offline, `components/layout/AppShell.tsx` badge 99+ via `useNotificationsRealtime`
+- Events: `connected`, `subscribed`, `message.created|updated|deleted`, `notification.created`, `error` — JSON `{type, payload}`
+- Flow: `POST message → DB commit → manager.broadcast_channel → WS subscribers` (ghost-free, dedup via id), `POST follow/like/comment → create_notification → manager.send_to_user`
+- HTTP fallback: `GET /clubs/.../messages` still works via HTTP, WS is enhancement, polling not aggressive
+- Следующий: **STEP 12 — Projects**

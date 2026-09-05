@@ -14,6 +14,7 @@ import { HashtagPage } from "@/pages/HashtagPage";
 import { ClubsPage } from "@/pages/ClubsPage";
 import { ClubPage } from "@/pages/ClubPage";
 import { ClubChannelPage } from "@/pages/ClubChannelPage";
+import { NotificationsPage } from "@/pages/NotificationsPage";
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -44,10 +45,7 @@ const router = createBrowserRouter([
         path: "/messages",
         element: <PlaceholderPage titleKey="nav.messages" fallbackTitle="Messages" description="Личные сообщения и каналы клубов (WebSocket-ready)." />,
       },
-      {
-        path: "/notifications",
-        element: <PlaceholderPage titleKey="nav.notifications" fallbackTitle="Notifications" description="Лайки, комментарии, подписки, упоминания." />,
-      },
+      { path: "/notifications", element: <NotificationsPage /> },
       { path: "/profile", element: <ProfilePage /> },
       { path: "/profile/:username", element: <ProfilePage /> },
       { path: "/posts/:postId", element: <PostDetailPage /> },

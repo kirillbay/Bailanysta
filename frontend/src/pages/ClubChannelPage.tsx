@@ -1,11 +1,12 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clubChannelsApi } from "@/api/clubChannels";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/stores/auth";
+import { useChannelRealtime } from "@/hooks/useRealtime";
 
 export function ClubChannelPage() {
   const { slug, channelSlug } = useParams();
@@ -17,11 +18,17 @@ export function ClubChannelPage() {
   const [offset, setOffset] = useState(0);
 
   const channelsQuery = useQuery({ queryKey: ["club-channels", slug], queryFn: () => clubChannelsApi.list(slug!) });
+  const channelQuery = useQuery({
+    queryKey: ["club-channel", slug, channelSlug],
+    queryFn: () => clubChannelsApi.get(slug!, channelSlug!),
+    enabled: !!slug && !!channelSlug,
+  });
   const messagesQuery = useQuery({
     queryKey: ["club-messages", slug, channelSlug, offset],
     queryFn: () => clubChannelsApi.messages(slug!, channelSlug!, 50, offset),
     enabled: !!slug && !!channelSlug,
   });
+  const { status: wsStatus } = useChannelRealtime(channelQuery.data?.id || null);
 
   const sendMut = useMutation({
     mutationFn: () => clubChannelsApi.send(slug!, channelSlug!, content),
@@ -61,8 +68,15 @@ export function ClubChannelPage() {
       {/* Messages */}
       <div className="space-y-4">
         <div className="rounded-2xl border bg-card p-4">
-          <h1 className="text-lg font-semibold"># {channelSlug}</h1>
-          <p className="text-xs text-muted-foreground">Сообщения канала — только участники клуба</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold"># {channelSlug}</h1>
+              <p className="text-xs text-muted-foreground">Сообщения канала — только участники клуба</p>
+            </div>
+            <span className={`text-xs px-2 py-1 rounded-full ${wsStatus === "connected" ? "bg-green-100 text-green-700" : wsStatus === "reconnecting" ? "bg-amber-100 text-amber-700" : "bg-secondary text-muted-foreground"}`}>
+              {wsStatus === "connected" ? "Connected" : wsStatus === "reconnecting" ? "Reconnecting..." : "Offline (HTTP fallback)"}
+            </span>
+          </div>
         </div>
 
         <Card>

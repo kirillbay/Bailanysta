@@ -24,7 +24,7 @@ def _enrich_user(u: User, db: Session, current_user_id=None):
     }
 
 @router.post("/{username}/follow", status_code=status.HTTP_201_CREATED)
-def follow_user(username: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def follow_user(username: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     target = db.query(User).filter(User.username == username.strip()).first()
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
@@ -36,6 +36,16 @@ def follow_user(username: str, db: Session = Depends(get_db), current_user: User
     f = Follow(follower_id=current_user.id, following_id=target.id)
     db.add(f)
     db.commit()
+    # notification
+    try:
+        from app.services.notifications import notify_follow
+        from app.realtime.manager import manager
+        n = notify_follow(db, target.id, current_user, current_user.username)
+        if n:
+            db.commit()
+            await manager.send_to_user(str(target.id), {"type": "notification.created", "payload": {"id": str(n.id), "type": n.type, "title": n.title, "message": n.message, "actor": {"id": str(current_user.id), "username": current_user.username}, "entity_type": n.entity_type, "entity_id": str(n.entity_id) if n.entity_id else None, "is_read": n.is_read, "created_at": n.created_at.isoformat()}})
+    except Exception:
+        pass
     return {"detail": "Followed"}
 
 @router.delete("/{username}/follow", status_code=status.HTTP_204_NO_CONTENT)

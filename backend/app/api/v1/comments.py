@@ -33,7 +33,7 @@ def list_comments(post_id: uuid.UUID, db: Session = Depends(get_db), limit: int 
     return [_comment_to_read(c) for c in comments]
 
 @router.post("/posts/{post_id}/comments", response_model=CommentRead, status_code=status.HTTP_201_CREATED)
-def create_comment(post_id: uuid.UUID, payload: CommentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def create_comment(post_id: uuid.UUID, payload: CommentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -44,6 +44,17 @@ def create_comment(post_id: uuid.UUID, payload: CommentCreate, db: Session = Dep
     db.commit()
     db.refresh(c)
     c = db.query(Comment).filter(Comment.id == c.id).first()
+    # notify post author
+    if post.author_id != current_user.id:
+        try:
+            from app.services.notifications import notify_comment
+            from app.realtime.manager import manager
+            n = notify_comment(db, post.author_id, current_user, post.id)
+            if n:
+                db.commit()
+                await manager.send_to_user(str(post.author_id), {"type": "notification.created", "payload": {"id": str(n.id), "type": n.type, "title": n.title, "message": n.message, "actor": {"id": str(current_user.id), "username": current_user.username}, "entity_type": n.entity_type, "entity_id": str(n.entity_id) if n.entity_id else None, "is_read": n.is_read, "created_at": n.created_at.isoformat()}})
+        except Exception:
+            pass
     return _comment_to_read(c)
 
 @router.patch("/comments/{comment_id}", response_model=CommentRead)

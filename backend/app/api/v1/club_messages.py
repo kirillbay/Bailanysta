@@ -55,7 +55,7 @@ def list_messages(slug: str, channel_slug: str, db: Session = Depends(get_db), c
     return [_msg_to_read(m) for m in msgs]
 
 @router.post("/{slug}/channels/{channel_slug}/messages", status_code=status.HTTP_201_CREATED)
-def create_message(slug: str, channel_slug: str, payload: MessageCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def create_message(slug: str, channel_slug: str, payload: MessageCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     club = _get_club_or_404(db, slug)
     _require_member(db, club, current_user.id)
     ch = _get_channel_or_404(db, club, channel_slug)
@@ -69,10 +69,17 @@ def create_message(slug: str, channel_slug: str, payload: MessageCreate, db: Ses
     db.commit()
     db.refresh(msg)
     msg = db.query(ClubMessage).filter(ClubMessage.id == msg.id).first()
-    return _msg_to_read(msg)
+    data = _msg_to_read(msg)
+    # broadcast after commit (ghost-free)
+    try:
+        from app.realtime.manager import manager
+        await manager.broadcast_channel(str(ch.id), {"type": "message.created", "payload": data})
+    except Exception:
+        pass
+    return data
 
 @router.patch("/{slug}/channels/{channel_slug}/messages/{message_id}")
-def update_message(slug: str, channel_slug: str, message_id: uuid.UUID, payload: MessageUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def update_message(slug: str, channel_slug: str, message_id: uuid.UUID, payload: MessageUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     club = _get_club_or_404(db, slug)
     _require_member(db, club, current_user.id)
     ch = _get_channel_or_404(db, club, channel_slug)
@@ -90,10 +97,16 @@ def update_message(slug: str, channel_slug: str, message_id: uuid.UUID, payload:
     msg.is_edited = True
     db.commit()
     db.refresh(msg)
-    return _msg_to_read(msg)
+    data = _msg_to_read(msg)
+    try:
+        from app.realtime.manager import manager
+        await manager.broadcast_channel(str(ch.id), {"type": "message.updated", "payload": data})
+    except Exception:
+        pass
+    return data
 
 @router.delete("/{slug}/channels/{channel_slug}/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_message(slug: str, channel_slug: str, message_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def delete_message(slug: str, channel_slug: str, message_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     club = _get_club_or_404(db, slug)
     _require_member(db, club, current_user.id)
     ch = _get_channel_or_404(db, club, channel_slug)
@@ -106,4 +119,9 @@ def delete_message(slug: str, channel_slug: str, message_id: uuid.UUID, db: Sess
         raise HTTPException(status_code=403, detail="Not allowed")
     db.delete(msg)
     db.commit()
+    try:
+        from app.realtime.manager import manager
+        await manager.broadcast_channel(str(ch.id), {"type": "message.deleted", "payload": {"id": str(message_id), "channel_id": str(ch.id)}})
+    except Exception:
+        pass
     return None

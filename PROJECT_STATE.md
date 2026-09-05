@@ -2,21 +2,21 @@
 
 > Persistent memory проекта. Обновляется после КАЖДОГО STEP.
 > Протокол: PERSISTENT DEVELOPMENT PROTOCOL (2026-09-05)
-> Последнее обновление: 2026-09-05 (STEP 10 — Club Channels & Messaging)
+> Последнее обновление: 2026-09-05 (STEP 11 — Notifications & Realtime)
 
 ---
 
 ## 1. Текущий STEP
 
-**STEP 10 — Club Channels & Messaging — ЗАВЕРШЁН ✅**
+**STEP 11 — Notifications & Realtime — ЗАВЕРШЁН ✅**
 
 - Workspace: `C:\Users\lueex\Desktop\Bailanysta`
-- Branch: `main` | Последний commit: `feat: STEP 10 — club channels and messaging` (см. §17)
-- Статус: ClubChannel + ClubMessage (CRUD + pagination + IDOR) + ClubChannelPage + 15 тестов — 185 passed, build зеленый, realtime отложен на STEP11
+- Branch: `main` | Последний commit: `feat: STEP 11 — notifications and realtime` (см. §17)
+- Статус: Notification model+service+API + WebSocket manager + channel/message realtime + notifications UI/badge — 206 тестов зелёных, WebSocket работает, HTTP fallback сохранён, без Redis
 
-**Последний завершённый STEP:** STEP 10 — Club Channels & Messaging (2026-09-05)
+**Последний завершённый STEP:** STEP 11 — Notifications & Realtime (2026-09-05)
 
-**Следующий рекомендуемый STEP:** STEP 11 — Notifications & Realtime (WebSocket, notifications)
+**Следующий рекомендуемый STEP:** STEP 12 — Projects
 
 ---
 
@@ -35,57 +35,81 @@
 | 7 | Follow, Search & Hashtags | 2026-09-05 | `831f9b9` | ✅ Done |
 | 8 | Stories | 2026-09-05 | `79bd004` | ✅ Done |
 | 9 | Clubs, Members & Roles | 2026-09-05 | `1b83af6` | ✅ Done |
-| 10 | Club Channels & Messaging | 2026-09-05 | `feat STEP10` | ✅ Done |
+| 10 | Club Channels & Messaging | 2026-09-05 | `5973415` | ✅ Done |
+| 11 | Notifications & Realtime | 2026-09-05 | `feat STEP11` | ✅ Done |
 
-> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications & Realtime → 12 Projects → 13 i18n/Theme/Responsive → 14 Security Hardening → 15 Testing/Perf → 16 Deployment → 17 Final QA
+> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications/Realtime ✅ → 12 Projects → 13 i18n/Theme/Responsive → 14 Security Hardening → 15 Testing/Perf → 16 Deployment → 17 Final QA
 
 ---
 
 ## 3. Текущая архитектура
 
 ```
-[Browser] → [Frontend: Clubs + ClubPage(Channels) + ClubChannelPage(Messages) + Feed/Stories] → [Backend: /clubs/{slug}/channels + /clubs/{slug}/channels/{cslug}/messages + clubs] → [Postgres 007_club_channels_messages + SQLite test]
-                         ↕ clubChannelsApi, TanStack Query channels/messages
-                         ↕ Club → ClubChannel → ClubMessage (CASCADE)
+                    ┌───────────────┐
+                    │    React      │  AppShell + Feed + ClubChannelPage + NotificationsPage
+                    └───────┬───────┘
+                            │
+                 ┌──────────┴──────────┐
+                 │                     │
+              HTTP REST            WebSocket (/api/v1/ws)
+                 │                     │
+                 └──────────┬──────────┘
+                            │
+                      FastAPI Backend
+                            │
+                 ┌──────────┴──────────┐
+                 │                     │
+             PostgreSQL          Realtime Manager (in-memory, no Redis)
+                 │                     │
+           notifications           channel_subscribers + user_connections
 ```
 
-- Frontend: `api/clubChannels.ts` (list/get/create/update/remove + messages/send/edit/remove), `pages/ClubPage.tsx` + ChannelsSection (list, create, edit/delete), `pages/ClubChannelPage.tsx` (sidebar channels + messages + composer), `App.tsx` /clubs/:slug/channels/:channelSlug
-- Backend: `models/club_channel.py` (ClubChannel), `models/club_message.py` (ClubMessage), `alembic 007_create_club_channels_messages`, `schemas/club_channel.py`, `api/v1/club_channels.py` (5 channels endpoints), `api/v1/club_messages.py` (4 messages endpoints), `services/storage.py` unchanged (no attachments)
-- DB: `007_create_club_channels_messages` added club_channels + club_messages
-- Детали → `ARCHITECTURE.md` (Club → Channels → Messages), `SECURITY.md` (channel/message IDOR)
+```
+Club
+ ├── ClubMember
+ ├── ClubChannel
+ │    └── ClubMessage  (realtime broadcast)
+User
+ └── Notification (follow/like/comment)
+```
+
+- Frontend: `api/notifications.ts` (list/unread/markRead/markAll/remove), `api/stories.ts` etc, `hooks/useRealtime.ts` (useChannelRealtime, useNotificationsRealtime), `pages/NotificationsPage.tsx`, `pages/ClubChannelPage.tsx` + WS, `components/layout/AppShell.tsx` badge, `App.tsx` /notifications
+- Backend: `models/notification.py` (id, recipient, actor, type, title/message, entity, is_read, created_at, indexes), `alembic 008_create_notifications`, `services/notifications.py` (create_notification, notify_follow/like/comment), `api/v1/notifications.py` (5 endpoints), `realtime/manager.py` (ConnectionManager), `api/v1/realtime.py` (WebSocket /ws, auth via cookie, subscribe with membership check, broadcast)
+- Realtime: `manager.connect/disconnect/subscribe/broadcast_channel/send_to_user` (async Lock, user_connections, channel_subscribers)
+- Events: `connected`, `subscribed`, `message.created|updated|deleted`, `notification.created`, `error`
+- Детали → `ARCHITECTURE.md` (realtime diagram + event schema), `SECURITY.md` (WS auth, notifications IDOR)
 
 ---
 
 ## 4. Frontend Status
 
 - Статус: **runnable ✅**
-- Clubs: `ClubsPage.tsx` unchanged, `ClubPage.tsx` now `ChannelsSection` (list channels, create owner/admin, edit/delete)
-- Channels: `ClubChannelPage.tsx` — двухколоночный layout `grid lg:240px 1fr`, sidebar channels list (active highlight), main messages (avatar, author, timestamp, edited, content, edit/delete), pagination `Load older`, composer textarea Enter=send Shift+Enter newline, max 10000, trim, disable empty, invalidate messages
-- APIs: `api/clubChannels.ts` all 9 functions
-- Routing: `App.tsx` `/clubs/:slug/channels/:channelSlug` protected
-- Build: `tsc --noEmit` ✅, `npm run build` ✅ 3.45s, 1704 modules, 504.01 kB js gzip 150.94 kB (17.29 kB css) — chunks >500kB warning (code-split debt)
+- Notifications: `api/notifications.ts` + `pages/NotificationsPage.tsx` (list 50, unread badge, mark read/all, delete, actor avatar, title/message, entity link, timestamp, read/unread opacity), `AppShell.tsx` badge `unreadCount` via `useNotificationsRealtime` + `useQuery` cache, `99+` handling
+- Realtime: `hooks/useRealtime.ts` (getWsUrl `VITE_API_URL` http→ws + `/api/v1/ws`, `useChannelRealtime` with backoff 1s→16s, `useNotificationsRealtime`), `pages/ClubChannelPage.tsx` + `useChannelRealtime(channelId)` + status badge `Connected/Reconnecting/Offline`, `StoryBar` etc still
+- Build: `tsc --noEmit` ✅, `npm run build` ✅ 3.23s, 1707 modules, 509.15 kB js gzip 152.05 kB (17.79 kB css) — chunks >500kB warning
 
 ---
 
 ## 5. Backend Status
 
 - Статус: **runnable ✅**
-- Models: `models/club_channel.py` — id UUID PK, club_id FK CASCADE index, name 100, slug 100, description Text, position int, created/updated, Unique club+slug, index club+position; `models/club_message.py` — id UUID PK, channel_id FK CASCADE index, author_id FK CASCADE index, content Text, is_edited bool false, created/updated, author joined, index channel+created
-- Schemas: `schemas/club_channel.py` — ChannelCreate 1-100 + desc 500, ChannelUpdate, ChannelRead, AuthorPublic, MessageCreate/Update 1-10000, MessageRead
-- Migration: `alembic/versions/007_create_club_channels_messages.py` — club_channels + club_messages — `--sql` verified (upgrade/downgrade)
-- APIs: `api/v1/club_channels.py` — `GET /clubs/{slug}/channels` member 403, ordered position+created, `GET /{channel_slug}` member, 404 cross-club, `POST` owner/admin 403 member/moderator, slugify unique, position auto max+1, `PATCH` owner/admin, `DELETE` owner/admin CASCADE; `api/v1/club_messages.py` — `GET /messages` member 403, limit 50 le100 offset, ordered asc, `POST` member 403, content trim 1-10000, author current_user, `PATCH` owner only 403 other, `DELETE` author or owner/admin/moderator can delete other, member cannot delete other, IDOR via channel→club check, forged channel/message 404
-- Router: `router.py` + channels + club_messages
-- Tests: `test_club_channels.py` 15 passed, total 185 passed (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels)
-- Startup: routes `/clubs/{slug}/channels`, `/.../messages` verified
+- Models: `models/notification.py` — id UUID PK, recipient_id FK CASCADE index, actor_id FK SET NULL nullable, type 50, title 200 nullable, message Text nullable, entity_type 50 nullable, entity_id UUID nullable, is_read bool false, created_at, indexes recipient+created, recipient+is_read
+- Schemas: `schemas/notification.py` implicit via dict, `services/notifications.py` ALLOWED_TYPES like/comment/follow/etc, `create_notification` (no self), `notify_follow/like/comment`
+- Migration: `alembic/versions/008_create_notifications.py` — notifications — `--sql` verified
+- APIs: `api/v1/notifications.py` — `GET /notifications?limit&offset&unread_only` 100 max new→old, `GET /unread-count` {count}, `PATCH /{id}/read` recipient only, `POST /read-all`, `DELETE /{id}` 204 recipient only; integration: `follows.py` POST follow → notify_follow + `await manager.send_to_user`, `posts.py` like → notify_like, `comments.py` comment → notify_comment, `club_messages.py` POST/PATCH/DELETE → `await manager.broadcast_channel` (ghost-free, DB commit before broadcast, dedup via message.id)
+- Realtime: `realtime/manager.py` (user_connections, channel_subscribers, lock, connect/disconnect/subscribe/broadcast/send_to_user), `api/v1/realtime.py` (WebSocket /ws, auth via `decode_token` from cookie or `?token=` query, `user_id` from sub, `is_active`, close 4401, `subscribe` with `channel_id` UUID, verify `ClubChannel` exists + `ClubMember` membership, `unsubscribe`, `connected`/`subscribed`/`error`, max payload 10k, `manager` global)
+- Router: `router.py` + notifications + realtime
+- Tests: `test_notifications.py` 10 passed, `test_realtime.py` 11 passed, total 206 passed (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 21 realtime)
+- Startup: routes `/notifications`, `/ws` verified
 
 ---
 
 ## 6. Database Status
 
-- Статус: **channels/messages added ✅**
-- Tables: `club_channels`, `club_messages` + previous 12 + `users`
-- Indexes: `ix_club_channels_club_id`, `ix_channels_club_position`, `ix_club_messages_channel_id`, `ix_club_messages_author_id`, `ix_messages_channel_created`
-- Constraints: Unique club+slug, FK CASCADE
+- Статус: **notifications added ✅**
+- Tables: `notifications` + previous 13 + `users`
+- Indexes: `ix_notifications_recipient_id`, `ix_notifications_actor_id`, `ix_notifications_recipient_created`, `ix_notifications_recipient_read`
+- Constraints: FK CASCADE (recipient), SET NULL (actor)
 
 ---
 
@@ -100,8 +124,9 @@
 | 005_create_stories | create stories | 2026-09-05 | ✅ Created, --sql OK |
 | 006_create_clubs | create clubs | 2026-09-05 | ✅ Created, --sql OK |
 | 007_create_club_channels_messages | create club channels and messages | 2026-09-05 | ✅ Created, --sql OK |
+| 008_create_notifications | create notifications | 2026-09-05 | ✅ Created, --sql OK |
 
-- `alembic upgrade head --sql` → all 7 upgrades OK
+- `alembic upgrade head --sql` → all 8 upgrades OK
 - Online requires PG
 
 ---
@@ -109,13 +134,13 @@
 ## 8. Authentication Status
 
 - Статус: **unchanged ✅** (STEP3)
-- All channel/message mutations require member + role checks, no author_id bypass
+- WS auth via same `decode_token` (cookie `access_token` HttpOnly or `?token=`), `is_active`, `type==access`, close 4401, no user_id forgery, no second auth system
 
 ---
 
 ## 9. Implemented Features
 
-> STEP 10 — channels/messaging done.
+> STEP 11 — notifications/realtime done.
 
 - [x] Foundation — shell, health, i18n, theme
 - [x] Database — PG, Alembic, User model
@@ -126,10 +151,9 @@
 - [x] Follow/Search — follow, search, hashtags
 - [x] Stories — 24h image/video/text, grouped feed, viewer
 - [x] Clubs — create, list/search, detail, join/leave, members, roles, avatar/cover
-- [x] Channels: create/list/get/update/delete (owner/admin), position auto, slug unique per club, member only access
-- [x] Messages: send (member), list paginated 50 le100, edit own only, delete own or moderator/admin/owner, is_edited, ordered asc, no N+1, IDOR cross-club blocked
-- [ ] Messaging private — future (not STEP10)
-- [ ] Notifications — STEP11
+- [x] Channels/Messaging — ClubChannel + ClubMessage, 9 endpoints, ClubChannelPage
+- [x] Notifications: model, service, API (list/unread-count/mark read/mark all/delete), follow/like/comment triggers, no self, frontend page + badge + realtime
+- [x] Realtime: WebSocket manager, /ws auth, channel subscribe with membership IDOR, broadcast message.created/updated/deleted, notification.created, HTTP fallback, reconnect, dedup via message.id
 - [ ] Projects — STEP12
 - [x] i18n + theme — done
 
@@ -137,55 +161,56 @@
 
 ## 10. Deployment Status
 
-- Frontend: Vercel candidate — build 504 kB, channels/messaging ready
-- Backend: Render/Railway — channels/messages ready
+- Frontend: Vercel candidate — build 509 kB, notifications/realtime ready
+- Backend: Render/Railway — notifications/realtime ready, uploads, manager in-memory (no Redis)
 - DB: docker-compose postgres:16-alpine
 
 ---
 
 ## 11. Tests Status
 
-- Backend: `pytest -v` → **185 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels) ✅
-  - channels 15 (create/list/get 1, permissions owner/admin 1, duplicate slug 1, update/delete 1, non-member 403 1, belongs correct 404 1, messages 9: send/list, empty/long 422, pagination, edit own, cannot edit other 403, delete own+moderator, non-member send 403, IDOR cross club 2, forged relationship 404)
-- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.45s
-- Integration: `register → create club → create channel → send message → edit → delete → cross-club blocked` via test client ✅
+- Backend: `pytest -v` → **206 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 10 notifications + 11 realtime) ✅
+  - notifications 10 (via follow, list own, cannot read other 403, unread count, mark read, mark all, no self like, like, comment, pagination)
+  - realtime 11 (auth, unauth 4401, invalid token 4401, member subscribe, non-member error, cross-club error, event format, message created/updated/deleted broadcast, notification event)
+- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.23s
+- Integration: `login → create club/channel → WS subscribe → HTTP post message → WS broadcast → notification via follow/like/comment → badge` via test client ✅
 - Coverage: не измерялась
 
 ---
 
 ## 12. Known Issues
 
-- No realtime/WebSocket (STEP11) — HTTP polling only, no presence/typing
-- No voice/video channels (future)
-- No private messages (future)
-- No attachments in messages (future)
+- No Redis — manager in-memory, single instance only, not distributed (documented debt, future Redis Pub/Sub)
+- No private DMs (future)
+- No voice/video (future)
 - No reactions/threads (future)
+- No file attachments in messages (future)
 - Hashtag ILIKE, Bookmarks 50 (known)
-- Frontend chunks >500kB warning (code-split debt)
+- Frontend chunks >500kB warning
 
 ---
 
 ## 13. Technical Debt
 
+- Add Redis Pub/Sub for multi-instance scaling (debt, not now per spec §2)
 - Add S3 (долг)
-- Add channels reorder drag-drop (currently position auto)
-- Add cursor pagination for messages (currently offset 50 le100)
-- Add WebSocket for realtime (STEP11)
+- Add cursor pagination for feed/search/notifications (offset)
+- Add WebSocket presence/typing (future)
 - Version single source (долг)
 
 ---
 
 ## 14. Current Blockers
 
-- Нет блокеров. Готов к STEP11.
+- Нет блокеров. Готов к STEP12.
 
 ---
 
 ## 15. Next Recommended STEP
 
-**STEP 11 — Notifications & Realtime**
+**STEP 12 — Projects**
 
-- WebSocket for messages/notifications, notifications model, polling fallback
+- projects model (name/description/tech/GitHub/demo/image/status), showcase, profile tab
 
 ---
 
@@ -193,44 +218,54 @@
 
 | Дата | Решение | Причина |
 |------|---------|---------|
-| 2026-09-05 | ClubChannel slugify channel + Unique club+slug + position auto max+1 | Spec §2, no duplicate |
-| 2026-09-05 | ClubMessage 1-10000 Text, is_edited, FK CASCADE, index channel+created | Spec §3, XSS safe text |
-| 2026-09-05 | Channels: member 403, create/update/delete owner/admin only | Spec §5, backend checks |
-| 2026-09-05 | Messages: member 403, edit own only 403 other, delete own or owner/admin/moderator | Spec §7, no escalation |
-| 2026-09-05 | Cross-club IDOR via channel→club check, forged 404 | Spec §8, security |
-| 2026-09-05 | Messages ordered asc, pagination limit 50 le100, author joined no N+1 | Spec §7/20 performance |
-| 2026-09-05 | Frontend ChannelPage grid 240px+1fr responsive, composer Enter/Shift+Enter | Spec §12/15 UX |
-| 2026-09-05 | Migration 007 separate | Not rewrite old |
-| 2026-09-05 | No WebSocket in STEP10 — HTTP foundation for STEP11 | Spec §23 |
+| 2026-09-05 | Notification model recipient+actor+type+entity, indexes recipient+created/read | Spec §3, performance |
+| 2026-09-05 | Service `create_notification` + `notify_follow/like/comment` centralized, no self, ALLOWED_TYPES | Spec §6, no spread |
+| 2026-09-05 | Follow/like/comment triggers notify + `manager.send_to_user` after DB commit | Spec §7, ghost-free |
+| 2026-09-05 | Manager in-memory `user_connections` + `channel_subscribers` + Lock, no Redis | Spec §2, MVP |
+| 2026-09-05 | WS auth via same `decode_token` (cookie or ?token), 4401 close, no second auth | Spec §9, no forgery |
+| 2026-09-05 | Channel subscribe checks `ClubChannel` exists + `ClubMember` membership, IDOR via club | Spec §10, security |
+| 2026-09-05 | Events `connected/subscribed/message.created|updated|deleted/notification.created/error` JSON | Spec §11, structured |
+| 2026-09-05 | Message flow DB commit before broadcast, dedup via message.id | Spec §12-13 |
+| 2026-09-05 | Frontend `useChannelRealtime` with backoff 1s→16s, `useNotificationsRealtime`, HTTP fallback | Spec §14-16 |
+| 2026-09-05 | Migration 008 separate | Not rewrite old |
+| 2026-09-05 | No Redis/Kafka per spec §2, documented debt | Keep MVP simple |
 
 ---
 
 ## 17. Последний Git Commit
 
 ```
-feat: STEP 10 — club channels and messaging (предстоит)
+feat: STEP 11 — notifications and realtime (предстоит)
 Branch: main | Status: clean (после commit)
-Channels/Messaging: models 007, 5+4 endpoints, ClubChannelPage, 15 tests
+Notifications/Realtime: model 008, service, 5+1 endpoints, manager, /ws, ClubChannelPage realtime, NotificationsPage/badge, 21 tests
 ```
 
 ---
 
-## 18. Изменённые файлы (STEP 10)
+## 18. Изменённые файлы (STEP 11)
 
 ```
-[new] backend/app/models/club_channel.py
-[new] backend/app/models/club_message.py
-[mod] backend/app/models/__init__.py (+ ClubChannel, ClubMessage)
-[new] backend/alembic/versions/007_create_club_channels_messages.py
-[new] backend/app/schemas/club_channel.py
-[new] backend/app/api/v1/club_channels.py
-[new] backend/app/api/v1/club_messages.py
-[mod] backend/app/api/v1/router.py (+ channels, club_messages)
-[new] backend/app/tests/test_club_channels.py (15 tests)
-[new] frontend/src/api/clubChannels.ts
-[new] frontend/src/pages/ClubChannelPage.tsx
-[mod] frontend/src/pages/ClubPage.tsx (+ ChannelsSection)
-[mod] frontend/src/App.tsx (+ /clubs/:slug/channels/:channelSlug)
+[new] backend/app/models/notification.py
+[mod] backend/app/models/__init__.py (+ Notification)
+[new] backend/alembic/versions/008_create_notifications.py
+[new] backend/app/services/notifications.py
+[new] backend/app/api/v1/notifications.py
+[mod] backend/app/api/v1/follows.py (+ notify)
+[mod] backend/app/api/v1/posts.py (+ notify like)
+[mod] backend/app/api/v1/comments.py (+ notify comment)
+[mod] backend/app/api/v1/club_messages.py (+ broadcast)
+[mod] backend/app/api/v1/router.py (+ notifications, realtime)
+[new] backend/app/realtime/manager.py
+[new] backend/app/api/v1/realtime.py
+[new] backend/app/tests/test_notifications.py (10 tests)
+[new] backend/app/tests/test_realtime.py (11 tests)
+[new] frontend/src/api/notifications.ts
+[new] frontend/src/hooks/useRealtime.ts
+[new] frontend/src/pages/NotificationsPage.tsx
+[mod] frontend/src/pages/ClubChannelPage.tsx (+ useChannelRealtime, status badge)
+[mod] frontend/src/components/layout/AppShell.tsx (+ badge, useNotificationsRealtime)
+[mod] frontend/src/App.tsx (+ /notifications)
+[mod] backend/app/tests/test_realtime.py (engine file DB, separate http_client for broadcast)
 ```
 
 ---

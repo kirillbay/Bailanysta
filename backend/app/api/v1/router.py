@@ -13,6 +13,8 @@ from app.api.v1.stories import router as stories_router
 from app.api.v1.clubs import router as clubs_router
 from app.api.v1.club_channels import router as channels_router
 from app.api.v1.club_messages import router as club_messages_router
+from app.api.v1.notifications import router as notifications_router
+from app.api.v1.realtime import router as realtime_router
 
 api_router = APIRouter()
 
@@ -30,3 +32,5 @@ api_router.include_router(stories_router, tags=["stories"])
 api_router.include_router(clubs_router, tags=["clubs"])
 api_router.include_router(channels_router, tags=["channels"])
 api_router.include_router(club_messages_router, tags=["club-messages"])
+api_router.include_router(notifications_router, tags=["notifications"])
+api_router.include_router(realtime_router, tags=["realtime"])
