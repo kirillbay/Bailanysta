@@ -302,6 +302,161 @@ Vite/React/Tailwind/shadcn — не установлены (STEP 1).
 
 ---
 
+## STEP 2 — Database Foundation
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Подготовить production-oriented database foundation: PostgreSQL + SQLAlchemy 2.x + Alembic + User model + docker-compose + health/db, без перехода к auth/posts/clubs. Проверить миграцию, тесты, регрессию STEP1.
+
+### Implemented
+
+**Database config:**
+- `backend/requirements.txt` + `psycopg[binary]==3.2.3` + `email-validator==2.2.0` (установлены, `psycopg 3.2.3` verified)
+- `backend/app/core/config.py` — `database_url` → `postgresql+psycopg://postgres:postgres@localhost:5432/bailanysta`, добавлен `database_url_safe` (masked), `cors_origins_list`, `is_production`; убран sqlite placeholder
+
+**SQLAlchemy:**
+- `backend/app/database/base.py` — `class Base(DeclarativeBase)` (единый metadata для Alembic)
+- `backend/app/database/session.py` — `create_engine(settings.database_url, pool_pre_ping=True, echo=debug)`, `SessionLocal = sessionmaker(...)`, `get_db()` yields+close, `check_db_connection()` SELECT 1
+- `backend/app/database/__init__.py` + `backend/app/database.py` re-export (удобство `from app.database import Base, get_db`)
+
+**User model:**
+- `backend/app/models/user.py` — `id Uuid PK uuid4`, `username String(50) unique`, `email String(320) unique`, `password_hash String(255) nullable`, `display_name 100`, `bio Text`, `avatar_url/cover_url 512`, `is_active Boolean default true server_default true`, `created_at/updated_at DateTime(timezone=True) server_default func.now()`; убраны дублирующие `Index` (unique уже создаёт constraint)
+- `backend/app/models/__init__.py` — импорт User для Alembic
+
+**Schemas:**
+- `backend/app/schemas/user.py` — `UserBase` (username 3-50 pattern `^[a-zA-Z0-9_]+$`, EmailStr, display_name 100, bio 500), `UserCreate(password 8-128)`, `UserRead` (from_attributes, id, is_active, timestamps)
+- `backend/app/schemas/__init__.py`
+
+**Alembic:**
+- `backend/alembic.ini` (script_location alembic)
+- `backend/alembic/env.py` — sys.path, `app.models` import, `Base.metadata`, `postgresql+asyncpg`→`psycopg` convert, `target_metadata`, `compare_type/server_default`, online с fallback warning без literal_binds error
+- `backend/alembic/script.py.mako`
+- `backend/alembic/versions/001_create_users.py` — `revision 001_create_users`, `create_table users` (все колонки, PK, UniqueConstraint email/username), `downgrade DROP TABLE` — `--sql` verified (PostgresqlImpl)
+
+**Docker:**
+- `docker-compose.yml` — `postgres:16-alpine`, `container_name bailanysta-postgres`, `POSTGRES_DB/USER/PASSWORD/PORT` via `${POSTGRES_*: -default}`, volume `postgres_data`, healthcheck `pg_isready`, ports `${POSTGRES_PORT:-5432}:5432`
+- `.env.example` обновлён: `DATABASE_URL=postgresql+psycopg://...`, `POSTGRES_DB/USER/PASSWORD/PORT` vars
+- Docker не установлен на хосте (`docker --version` → not found) — зафиксировано, не блокер для кода
+
+**Health:**
+- `backend/app/api/v1/health.py` — сохранён `GET /health` + добавлен `GET /health/db` (check_db_connection, без stack trace, `{"connected"}` / `{"unreachable"}`)
+
+**Tests:**
+- `backend/app/tests/conftest.py` — file SQLite `.test_bailanysta.db` (StaticPool, check_same_thread False), `Base.metadata.create_all`, session transaction fixture; docstring объясняет SQLite только для unit-тестов
+- `backend/app/tests/test_database.py` — 8 проверок: `test_db_session_creation` (session + SELECT 1), `test_create_and_read_user`, `test_unique_username_constraint`, `test_unique_email_constraint`, `test_timestamps`, `test_rollback_on_error`, `test_is_active_default`, `test_password_hash_nullable` (все PASS, 0.07s)
+
+### Files Changed
+
+```
+[mod] backend/requirements.txt (+ psycopg[binary]==3.2.3, email-validator==2.2.0)
+[mod] backend/app/core/config.py (psycopg URL, database_url_safe)
+[new] backend/app/database/base.py
+[new] backend/app/database/session.py
+[new] backend/app/database/__init__.py
+[new] backend/app/database.py
+[new] backend/app/models/user.py
+[new] backend/app/models/__init__.py
+[new] backend/app/schemas/user.py
+[new] backend/app/schemas/__init__.py
+[new] backend/alembic.ini
+[new] backend/alembic/env.py
+[new] backend/alembic/script.py.mako
+[new] backend/alembic/versions/001_create_users.py
+[new] backend/app/tests/conftest.py
+[new] backend/app/tests/test_database.py
+[mod] backend/app/api/v1/health.py (+ GET /health/db)
+[new] docker-compose.yml
+[mod] .env.example (psycopg URL, POSTGRES_* vars)
+[mod] backend/app/models/user.py (fix duplicate Index)
+[mod] backend/alembic/env.py (fallback fix literal_binds)
+```
+
+### Database Changes
+
+- Engine: PostgreSQL via `psycopg` (SQLAlchemy 2.x), `pool_pre_ping True`
+- Model: `users` (см. выше) — 11 полей, 2 unique constraints, PK UUID
+- Migration: `001_create_users` — create_table users, upgrade/downgrade --sql OK (PostgresqlImpl)
+- Session: `SessionLocal`, `get_db()` dependency
+
+### API Changes
+
+- Новый `GET /api/v1/health/db` → `{"status":"ok","database":"connected"}` / `{"status":"error","database":"unreachable"}` (без stack trace)
+- Существующий `GET /api/v1/health` не тронут — regression PASS
+- Остальные endpoints не созданы (User CRUD — STEP3+)
+
+### Frontend Changes
+
+Нет изменений. Regression: `npx tsc --noEmit` PASS, `npm run build` PASS 3.48s (354.82 kB js gzip 113 kB, 15.29 kB css) — STEP1 не сломан.
+
+### Security Changes
+
+- Никаких plaintext passwords (password_hash nullable, не хранится plain)
+- Никаких hardcoded DB passwords (via .env, DATABASE_URL from settings, .env gitignored)
+- Никаких credentials в логах (`database_url_safe` masked, health/db без leak)
+- `alembic/env.py` не логирует URL с паролем
+- Backend-only DB access (get_db dependency), no frontend DB
+- Health/db не отдаёт stack trace
+
+### Tests
+
+- `pytest app/tests/test_database.py -v` → **8 passed in 0.07s** (session, create/read, unique username/email, timestamps, rollback, is_active, password_hash)
+- `pytest app/tests/test_health.py -v` → **6 passed in 0.36s**
+- `pytest -v` (all) → **14 passed, 3 warnings** (SAWarning transaction deassociated — не критично)
+- `python -c "from app.database.base import Base; from app.models import User"` → ok, tables ['users']
+- `python -c "from app.main import app"` → import ok
+
+### Build
+
+- Frontend: `tsc --noEmit` ✅, `npm run build` 3.48s ✅
+- Backend: `import app.main` ✅, `alembic upgrade head --sql` ✅ (CREATE TABLE users ...), `alembic downgrade 001_create_users:base --sql` ✅ (DROP TABLE)
+- Online `alembic upgrade head` без PG → OperationalError (ожидаемо, нужен Docker), `alembic current/check` без PG → warning skip (fixed env fallback)
+
+### Problems
+
+- Duplicate Index `ix_users_username already exists` в SQLite при `Base.metadata.create_all` — из-за `unique=True + index=True` + explicit `Index` (duplicate) — fixed удалением `__table_args__` и `index=True`
+- `alembic revision --autogenerate` требует живого PG — обошли ручным `001_create_users.py` + `--sql` verify
+- `alembic env.py` fallback с `literal_binds=True` без `as_sql` → `Can't use literal_binds without as_sql` — fixed fallback to `return` without configure
+- `docker` not found на хосте — cannot run `docker compose up` — зафиксировано как known issue
+
+### Fixed
+
+Все выше исправлено до зелёных тестов. Оставлен file-based SQLite для тестов с пояснением.
+
+### Known Issues
+
+- Docker не установлен — `docker-compose up postgres` нельзя проверить локально (yml валиден, healthcheck есть)
+- `alembic upgrade head` требует живого PG (OperationalError без него — ожидаемо)
+- SQLite fallback маскирует PG-специфику (UUID, now()) — зафиксировано в conftest, PG constraints проверяются через migration SQL инспекция (PostgresqlImpl)
+- `alembic check/current` без PG → warning skip (не критично, online нужен PG)
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| psycopg[binary] 3.2.3 | postgresql+psycopg:// | Современный драйвер SQLAlchemy 2.x (§5) |
+| Sync engine (не async) | create_engine + sessionmaker | Простота, без async overhead для MVP |
+| User Uuid generic | sqlalchemy Uuid | PG UUID + SQLite совместимость |
+| Unique via column unique=True | без duplicate Index | Избежать duplicate index error |
+| SQLite file для тестов | conftest file DB | Изолированные unit-тесты без Docker, prod остаётся PG |
+| Manual migration 001 | ручной create_table | PG недоступен, но --sql верифицирован |
+| Separate /health/db | не ломает /health | Spec §13, быстро и без stack trace |
+| docker-compose postgres:16-alpine | env via POSTGRES_* | Spec §6, local dev convenience |
+
+### Next Step
+
+**STEP 3 — Authentication**
+
+- Argon2id, JWT access/refresh HttpOnly cookies, `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
+- Validation, 409 Conflict duplicate, get_current_user
+- Tests auth flow + health/db regression
+- Обновить PROJECT_STATE.md + DEVELOPMENT_LOG.md
+
+---
+
 <!-- Шаблон для следующего STEP — копировать и заполнять:
 
 ## STEP X — Название

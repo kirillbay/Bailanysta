@@ -1,2 +1,7 @@
-# Placeholder — full DB wiring in STEP 2
-# Kept to avoid breaking imports; SQLAlchemy Base will be added later.
+"""SQLAlchemy Base — single source for Alembic metadata."""
+
+from sqlalchemy.orm import DeclarativeBase
+
+
+class Base(DeclarativeBase):
+    pass
