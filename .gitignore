@@ -72,6 +72,9 @@ ehthumbs.db
 *.launch
 .settings/
 
+# ── TS build info ──
+*.tsbuildinfo
+
 # ── Temporary ──
 tmp/
 temp/

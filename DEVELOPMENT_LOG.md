@@ -146,6 +146,162 @@ Vite/React/Tailwind/shadcn — не установлены (STEP 1).
 
 ---
 
+## STEP 1 — Foundation
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Превратить каркас в реально запускаемый foundation: связать frontend + backend + API, настроить routing, API client, application shell, health check, базовую обработку ошибок, environment, i18n, theme, responsive, проверки сборки/типов. Без бизнес-функций (auth/posts/clubs и т.д. — отдельные STEP).
+
+### Implemented
+
+**Frontend:**
+- `package.json` — React 18 + Vite 6 + TS 5.6 + Tailwind 3 + shadcn-like ui + Lucide + React Router 6 + TanStack Query 5 + RHF + Zod + i18next 24 (+ @types/node)
+- Config: `vite.config.ts` (alias @, ports 5173/4173), `tsconfig.json` + `tsconfig.node.json` (composite), `tailwind.config.js` (CSS variables, darkMode class, radius), `postcss.config.js`, `index.html`, `src/vite-env.d.ts`
+- Core: `src/lib/utils.ts` (cn), `src/lib/i18n.ts` (resources ru/kk/en, detector localStorage→navigator, persistence), `src/api/client.ts` (fetch wrapper, VITE_API_URL, ApiError, health()), `src/hooks/useHealth.ts` (useQuery), `src/stores/theme.tsx` (light/dark/system + localStorage + matchMedia), `src/components/ErrorBoundary.tsx`
+- UI: `components/ui/button.tsx`, `card.tsx`, `badge.tsx`, `skeleton.tsx` — rounded-2xl, border, shadow-sm
+- Layout: `components/layout/AppShell.tsx` — Sidebar (260px, desktop) с логотипом Б, 9 nav items, LanguageSwitcher (RU/KZ/EN), ThemeSwitcher, BottomNav (mobile 5 items), TopBar (mobile), responsive shell с `Outlet`
+- Pages: `pages/FeedPage.tsx` — hero (Байланыста болайық), 3 карточки Threads/Discord/GitHub, health-check card (loading/success/error с ApiError, refetch), skeleton + empty demo; `pages/PlaceholderPage.tsx` — заглушка с Badge STEP 1; `pages/NotFoundPage.tsx` — 404
+- Routing: `src/App.tsx` — `createBrowserRouter` с 9 маршрутами (`/`, `/explore`, `/search`, `/clubs`, `/projects`, `/messages`, `/notifications`, `/profile`, `/settings`, `*` → 404) под `AppShell`
+- Entry: `src/main.tsx` — QueryClient (retry 1, stale 30s), ThemeProvider, ErrorBoundary, i18n import; `src/index.css` — Tailwind base + CSS vars light/dark
+- i18n: подключён, переключатель в Sidebar, все nav через `t()`
+
+**Backend:**
+- `requirements.txt` — fastapi 0.115.6, uvicorn[standard] 0.34, pydantic 2.10, pydantic-settings 2.7, sqlalchemy 2.0.36, alembic 1.14, httpx, pytest, anyio
+- `app/core/config.py` — BaseSettings (env_file .env, cors_origins string→list, is_production, database_url placeholder sqlite)
+- `app/api/v1/health.py` — `GET /health` → `{status,service,version,env}`
+- `app/api/v1/router.py` — агрегатор
+- `app/main.py` — FastAPI (title Bailanysta), CORSMiddleware (allow_origins from settings, credentials true), security headers middleware (nosniff, DENY, Referrer-Policy, HSTS в prod), global exception handler (500 без stack trace), routers (`/api/v1` + `/health` + `/`)
+- `app/database/base.py` — placeholder (STEP 2)
+- `pytest.ini` + `app/tests/test_health.py` — 6 тестов (root, v1 health, CORS, headers, 404)
+
+**Env:**
+- `.env.example` уже существовал, `VITE_API_URL=http://localhost:8000` используется в `api/client.ts`; backend `CORS_ORIGINS=http://localhost:5173,http://localhost:3000` — корректно
+- Никаких секретов в frontend bundle (только VITE_)
+
+### Files Changed
+
+```
+[new] frontend/package.json
+[new] frontend/index.html
+[new] frontend/vite.config.ts
+[new] frontend/tsconfig.json
+[new] frontend/tsconfig.node.json
+[new] frontend/tailwind.config.js
+[new] frontend/postcss.config.js
+[new] frontend/src/main.tsx
+[new] frontend/src/App.tsx
+[new] frontend/src/vite-env.d.ts
+[new] frontend/src/index.css
+[new] frontend/src/lib/utils.ts
+[new] frontend/src/lib/i18n.ts
+[new] frontend/src/api/client.ts
+[new] frontend/src/hooks/useHealth.ts
+[new] frontend/src/stores/theme.tsx
+[new] frontend/src/components/ErrorBoundary.tsx
+[new] frontend/src/components/ui/button.tsx
+[new] frontend/src/components/ui/card.tsx
+[new] frontend/src/components/ui/badge.tsx
+[new] frontend/src/components/ui/skeleton.tsx
+[new] frontend/src/components/layout/AppShell.tsx
+[new] frontend/src/pages/FeedPage.tsx
+[new] frontend/src/pages/PlaceholderPage.tsx
+[new] frontend/src/pages/NotFoundPage.tsx
+[new] backend/requirements.txt
+[new] backend/pytest.ini
+[new] backend/app/core/config.py
+[new] backend/app/main.py
+[new] backend/app/api/v1/health.py
+[new] backend/app/api/v1/router.py
+[new] backend/app/database/base.py
+[new] backend/app/tests/test_health.py
+[mod] frontend/tsconfig.node.json — fix composite/allowImportingTsExtensions
+[mod] frontend/src/pages/FeedPage.tsx — Badge variant fix
+[mod] frontend/src/pages/NotFoundPage.tsx — remove asChild
+```
+
+### Database Changes
+
+Нет. DB не создана, migrations 0. SQLAlchemy установлена, но Base/engine — в STEP 2.
+
+### API Changes
+
+- `GET /api/v1/health` → `{status:"ok", service:"Bailanysta", version:"0.1.0", env:"development"}`
+- `GET /health` (root, для LB, not in schema)
+- `GET /` → `{service, version, docs, health}`
+- Все под `settings.api_v1_prefix` (`/api/v1`), JSON, корректные статусы.
+
+### Frontend Changes
+
+Полный scaffold описан в Implemented. Ключевое: routing 9 pages, AppShell responsive, i18n+theme, QueryProvider, ErrorBoundary, health integration (loading/error/empty), production build готов.
+
+### Security Changes
+
+- CORS: allow_origins из env, allow_credentials true, без wildcard `*` с credentials (SECURITY.md §6)
+- Security headers: X-Content-Type-Options nosniff, X-Frame-Options DENY, Referrer-Policy, HSTS в prod
+- Global exception handler — no stack trace leak
+- No secrets in frontend (только VITE_API_URL), .env gitignored
+- Validation: пока только health (без input), Pydantic settings — основа для следующих STEP
+
+### Tests
+
+- `npx tsc --noEmit` (frontend) → **PASS** (после fix composite + Badge + NotFound)
+- `npm run build` (frontend) → **PASS** — `vite v6.4.3 building... ✓ 1665 modules, dist/index.html 0.68 kB, css 15.29 kB gzip 3.88 kB, js 354.82 kB gzip 113 kB, built in 17.19s`
+- `python -c "from app.main import app"` → **import ok**
+- `pytest app/tests/test_health.py -v` → **6 passed in 0.76s** (root, health v1, root health, CORS, security headers, 404)
+- `curl http://127.0.0.1:8000/api/v1/health` via uvicorn → `{"status":"ok",...}` **OK**
+- `curl http://127.0.0.1:8000/` → `{"service":"Bailanysta",...}` **OK**
+
+### Build
+
+- Frontend build: ✅ 17.19s, 354 kB js (113 gzip), 15 kB css
+- Backend import: ✅
+- Backend tests: ✅ 6/6
+
+### Problems
+
+- `tsconfig` composite error — fixed (composite:true, allowImportingTsExtensions false для node config)
+- `Badge variant` type error — fixed (убрал несуществующий variant)
+- `Button asChild` type error — fixed (заменил на Link)
+- Vite path alias требовал `@types/node` — установлен
+- `pip install` warnings про PATH — не критично (user install)
+
+### Fixed
+
+Все выше — исправлено в рамках STEP 1 до зелёных проверок.
+
+### Known Issues
+
+- `npm audit` — 2 moderate (esbuild) — не критично
+- Нет `eslint` config (скрипт есть, но не настроен) — low debt
+- `version` дублируется в frontend/backend — вынести в single source позже
+- Нет `docker-compose.yml` — будет в STEP 2
+- Backend `DATABASE_URL` пока sqlite placeholder
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| Fetch vs axios | native fetch | Меньше deps, достаточно, credentials include |
+| UI primitives | Вручную button/card/badge/skeleton | Без shadcn CLI, меньше раздувания на STEP 1 |
+| Theme | Custom context + localStorage + matchMedia | Без next-themes, проще |
+| CORS | string→list property | Совместимо с comma-list в .env |
+| Headers middleware | В main.py | SECURITY.md §6, HSTS только prod |
+| Routing | createBrowserRouter + AppShell + 9 placeholders | Готово к масштабированию без переделки |
+
+### Next Step
+
+**STEP 2 — Database**
+
+- `app/database/base.py` (Base, engine, session), Alembic init, модель `users` минимально, первая миграция
+- `docker-compose.yml` для Postgres (опционально), тесты DB connection
+- Обновить PROJECT_STATE.md + DEVELOPMENT_LOG.md
+
+---
+
 <!-- Шаблон для следующего STEP — копировать и заполнять:
 
 ## STEP X — Название
