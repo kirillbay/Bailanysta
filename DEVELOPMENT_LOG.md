@@ -1216,6 +1216,128 @@ All fixed before green.
 
 ---
 
+## STEP 9 — Clubs, Members & Roles
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Создать основу Clubs — IT-сообществ: Club + ClubMember с ролями, permissions, CRUD, join/leave, members, role mgmt, avatar/cover.
+
+### Implemented
+
+**Backend:**
+- `backend/app/models/club.py` — `Club` (UUID PK, owner_id FK CASCADE index, name 100, slug 100 unique index, description Text, avatar/cover 512 nullable, created/updated server_default now, owner joined), `ClubMember` (UUID PK, club_id FK CASCADE index, user_id FK CASCADE index, role 20 owner/admin/moderator/member, joined_at, Unique club+user, index club+user), `slugify` (lower, regex `[^a-z0-9]+` → `-`, trim)
+- `backend/app/models/__init__.py` + Club, ClubMember
+- `backend/alembic/versions/006_create_clubs.py` — clubs + club_members — `--sql` verified
+- `backend/app/schemas/club.py` — ClubCreate 2-100 + description 2000, ClubUpdate, ClubRead (members_count, is_member, role), MemberRead
+- `backend/app/api/v1/clubs.py` — `POST /clubs` 201 (auth, slugify name + counter unique, creator owner member), `GET /clubs?q&limit&offset` public 50 ILIKE name/slug/description, `GET /clubs/{slug}` public with members_count + is_member/role via Request cookie optional decode, `PATCH /clubs/{slug}` 200 (owner/admin), `DELETE` 204 (owner only, cascade), `POST /join` 201 idempotent, `DELETE /leave` 204 owner cannot leave 400, `GET /members` paginated, `PATCH /members/{username}/role` (owner can all, admin cannot owner/admin/assign admin, cannot owner, moderator cannot), `DELETE /members/{username}` (owner any, admin not admin, moderator only member), `POST /avatar|cover` (owner/admin, save_image clubs/avatars|covers)
+- `backend/app/api/v1/router.py` + clubs_router
+- Tests `app/tests/test_clubs.py` 23 passed
+
+**Frontend:**
+- `frontend/src/api/clubs.ts` — list/get/create/update/remove/join/leave/members/updateRole/removeMember/uploadAvatar/Cover
+- `frontend/src/pages/ClubsPage.tsx` — header Create Club, search q, create form name 2-100 description 2000 Zod, cards avatar initials + name/slug/members_count/role badge + description, skeleton/empty/error, load more, Link to /clubs/:slug
+- `frontend/src/pages/ClubPage.tsx` — cover gradient + avatar initials, name/slug/members/owner, description, role badge, Join/Leave (owner cannot leave), Edit (owner/admin), Delete (owner), avatar/cover upload (clubs/avatars|covers), Channels placeholder (general/announcements coming next), members list (avatar, username, role, joined, role select + remove per permission)
+- `frontend/src/App.tsx` — `/clubs` + `/clubs/:slug` protected, placeholder removed
+
+### Files Changed
+
+```
+[new] backend/app/models/club.py
+[mod] backend/app/models/__init__.py (+ Club, ClubMember)
+[new] backend/alembic/versions/006_create_clubs.py
+[new] backend/app/schemas/club.py
+[new] backend/app/api/v1/clubs.py
+[mod] backend/app/api/v1/router.py (+ clubs_router)
+[new] backend/app/tests/test_clubs.py (23 tests)
+[new] frontend/src/api/clubs.ts
+[new] frontend/src/pages/ClubsPage.tsx
+[new] frontend/src/pages/ClubPage.tsx
+[mod] frontend/src/App.tsx (+ /clubs, /clubs/:slug)
+```
+
+### Database Changes
+
+- Migration `006_create_clubs` — clubs + club_members — `--sql` OK, FK CASCADE, Unique, indexes
+
+### API Changes
+
+- `POST /api/v1/clubs` 201, `GET /api/v1/clubs?q&limit&offset` public 50, `GET /api/v1/clubs/{slug}` public with members_count + is_member/role
+- `PATCH /api/v1/clubs/{slug}` 200 owner/admin, 403 else, `DELETE` 204 owner only
+- `POST /api/v1/clubs/{slug}/join` 201 idempotent, `DELETE /leave` 204 owner cannot leave 400
+- `GET /api/v1/clubs/{slug}/members?limit&offset` paginated, `PATCH /members/{username}/role` (owner/admin, no privilege escalation), `DELETE /members/{username}` (owner/admin/moderator per matrix)
+- `POST /api/v1/clubs/{slug}/avatar|cover` (owner/admin, JPEG/PNG/WebP)
+
+### Frontend Changes
+
+Clubs list + create + search + cards, Club page with cover/avatar, join/leave, edit/delete, members, role mgmt, Channels placeholder, TanStack Query invalidate.
+
+### Security Changes
+
+- No owner_id bypass (owner from current_user), slug generated backend
+- IDOR: edit/delete/role only per matrix, verified (owner>admin>moderator>member, admin cannot owner, moderator only member)
+- Privilege escalation attempts 403 (member→admin, moderator→admin, admin→owner, self-assign owner)
+- Membership: no duplicate (Unique), no join as other user, owner cannot leave
+- Input: name 2-100, description 2000, slug safe via slugify, search query limit 100, malformed UUID/username 404/422
+- XSS: club name/description text only, React escape
+- Upload: MIME Pillow, size 5 MB, UUID filenames, clubs/avatars|covers safe paths, no exec
+
+### Tests
+
+- `pytest app/tests/test_clubs.py -v` → **23 passed in 6.60s**:
+  - clubs 9 (create, unauth 401, owner auto, public list/detail, pagination/search, edit owner, edit unauth 403, delete owner/non-owner, nonexist 404)
+  - membership 5 (join/dup, leave/dup, owner cannot leave, members list)
+  - roles 7 (owner role, promote/demote, admin perms 3, moderator perms, member forbidden, cannot promote to owner, cannot modify owner, privilege escalation)
+  - security 2 (forged owner_id ignored, sensitive fields)
+- `pytest -v` all → **170 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs)
+- Frontend `tsc --noEmit` PASS, `npm run build` 1702 modules 496.44kB js gzip 149.61kB
+
+### Build
+
+- Frontend 4.03s, 17.13kB css
+- Backend import ok, routes verified, `alembic upgrade head --sql` all 6 migrations OK
+
+### Problems
+
+- `test_moderator_permissions` used `login("mod_user@example.com")` but email is `moduser@example.com` (without underscore) → 401 Invalid credentials — fixed to `login("mod_user")` username
+- `GET /clubs/{slug}` original was public without is_member — fixed to try optional auth via Request cookie decode
+- `/clubs` placeholder duplicate route in `App.tsx` — removed placeholder, kept real ClubsPage
+
+### Fixed
+
+All fixed before green.
+
+### Known Issues
+
+- No channels/messages (STEP10)
+- No clubs search beyond ILIKE (MVP)
+- No club ownership transfer (future)
+- No invite system (future)
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| Slugify lower + regex + counter | human URL | Spec §1 |
+| Roles owner/admin/moderator/member RANK 1-4 | matrix | Spec §2-3 |
+| Owner auto member on create | creator owner | Spec §2 |
+| Permission matrix owner>admin>moderator | admin cannot owner, moderator only member | Spec §3/7 no escalation |
+| Owner cannot leave 400 | without transfer | Spec §5 |
+| Search ILIKE name/slug/description | no ES | Spec §14 |
+| Storage reuse clubs/avatars\|covers | safe | Spec §9 |
+| Migration 006 separate | not rewrite old | Spec §15 |
+
+### Next Step
+
+**STEP 10 — Club Channels & Messaging**
+
+- club_channels model, messages, realtime MVP
+
+---
+
 <!-- Шаблон для следующего STEP — копировать и заполнять:
 
 ## STEP X — Название

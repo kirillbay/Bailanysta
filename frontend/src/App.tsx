@@ -11,6 +11,8 @@ import { PostDetailPage } from "@/pages/PostDetailPage";
 import { BookmarksPage } from "@/pages/BookmarksPage";
 import { SearchPage } from "@/pages/SearchPage";
 import { HashtagPage } from "@/pages/HashtagPage";
+import { ClubsPage } from "@/pages/ClubsPage";
+import { ClubPage } from "@/pages/ClubPage";
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -30,10 +32,8 @@ const router = createBrowserRouter([
       },
       { path: "/search", element: <SearchPage /> },
       { path: "/hashtags/:name", element: <HashtagPage /> },
-      {
-        path: "/clubs",
-        element: <PlaceholderPage titleKey="nav.clubs" fallbackTitle="Clubs" description="IT-сообщества: Python Kazakhstan, AI Engineers, Frontend и др." />,
-      },
+      { path: "/clubs", element: <ClubsPage /> },
+      { path: "/clubs/:slug", element: <ClubPage /> },
       {
         path: "/projects",
         element: <PlaceholderPage titleKey="nav.projects" fallbackTitle="Projects" description="Витрина проектов — GitHub, demo, технологии." />,
