@@ -26,7 +26,7 @@ def _normalize_username(username: str) -> str:
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit(limit=20, window=60, key_prefix="auth_register"))])
-def register(payload: RegisterRequest, response: Response, db: Session = Depends(get_db)):
+def register(payload: RegisterRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     username = _normalize_username(payload.username)
     email = _normalize_email(str(payload.email))
 
@@ -57,12 +57,12 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
         raise HTTPException(status_code=409, detail="Username or email already taken")
 
     token = create_access_token(user.id)
-    set_auth_cookie(response, token)
+    set_auth_cookie(response, token, request)
     return user
 
 
 @router.post("/login", response_model=UserRead, dependencies=[Depends(rate_limit(limit=20, window=60, key_prefix="auth_login"))])
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     identifier = payload.identifier.strip()
     is_email = "@" in identifier
 
@@ -84,7 +84,7 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
     # Update updated_at touch handled by DB; no need explicit
 
     token = create_access_token(user.id)
-    set_auth_cookie(response, token)
+    set_auth_cookie(response, token, request)
     return user
 
 
@@ -168,7 +168,7 @@ def _ensure_demo_data(db, demo_user):
         pass
 
 @router.post("/demo", response_model=UserRead, dependencies=[Depends(rate_limit(limit=10, window=60, key_prefix="demo"))])
-def demo_login(response: Response, db: Session = Depends(get_db)):
+def demo_login(request: Request, response: Response, db: Session = Depends(get_db)):
     """Demo Mode — creates or returns demo account and logs in via normal cookie."""
     demo_username = "demo"
     demo_email = "demo@bailanysta.demo"
@@ -200,7 +200,7 @@ def demo_login(response: Response, db: Session = Depends(get_db)):
             db.commit()
             db.refresh(user)
     token = create_access_token(user.id)
-    set_auth_cookie(response, token)
+    set_auth_cookie(response, token, request)
     return user
 
 
@@ -210,7 +210,7 @@ def me(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(response: Response, current_user: User = Depends(get_current_user)):
-    clear_auth_cookie(response)
+def logout(request: Request, response: Response, current_user: User = Depends(get_current_user)):
+    clear_auth_cookie(response, request)
     response.status_code = status.HTTP_204_NO_CONTENT
     return response
