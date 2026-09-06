@@ -7,10 +7,11 @@ export type SearchResult = {
   posts: PostRead[];
   hashtags: { id: string; name: string; posts_count: number }[];
   projects: { id: string; owner_id: string; name: string; description: string; technologies: string[]; github_url: string | null; demo_url: string | null; image_url: string | null; status: string; created_at: string | null }[];
+  clubs: { id: string; name: string; slug: string; description: string; members_count: number; created_at: string | null }[];
 };
 
 export const searchApi = {
-  search(q: string, type: "all" | "users" | "posts" | "hashtags" | "projects" = "all", limit = 20, offset = 0): Promise<SearchResult> {
+  search(q: string, type: "all" | "users" | "posts" | "hashtags" | "projects" | "clubs" = "all", limit = 20, offset = 0): Promise<SearchResult> {
     return api.get<SearchResult>(`/api/v1/search?q=${encodeURIComponent(q)}&type=${type}&limit=${limit}&offset=${offset}`);
   },
   hashtag(name: string) {

@@ -24,12 +24,12 @@ function Avatar({ url, username }: { url: string | null; username: string }) {
   const src = usersApi.resolveUrl(url);
   if (!src) {
     return (
-      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-foreground text-background text-xl font-bold">
+      <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-foreground text-background text-2xl font-bold border-4 border-card shadow-sm">
         {username.slice(0, 1).toUpperCase()}
       </div>
     );
   }
-  return <img src={src} alt={username} className="h-20 w-20 rounded-2xl object-cover border bg-card" />;
+  return <img src={src} alt={username} className="h-24 w-24 rounded-2xl object-cover border-4 border-card shadow-sm bg-card" />;
 }
 
 export function ProfilePage() {
@@ -147,15 +147,15 @@ export function ProfilePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="overflow-hidden rounded-[24px] border bg-card">
-        <div className="h-32 w-full bg-gradient-to-br from-violet-500 via-indigo-500 to-sky-500 relative">
+        <div className="h-40 w-full bg-gradient-to-br from-violet-500 via-indigo-500 to-sky-500 relative">
           {coverUrl && <img src={coverUrl} alt="cover" className="h-full w-full object-cover" />}
           {coverPreview && <img src={coverPreview} alt="preview" className="h-full w-full object-cover opacity-60" />}
         </div>
         <div className="p-5">
           <div className="flex gap-4">
-            <div className="-mt-12">
+            <div className="-mt-14">
               {avatarPreview ? (
-                <img src={avatarPreview} alt="preview" className="h-20 w-20 rounded-2xl object-cover border-4 border-card" />
+                <img src={avatarPreview} alt="preview" className="h-24 w-24 rounded-2xl object-cover border-4 border-card shadow-sm" />
               ) : (
                 <Avatar url={(data as any).avatar_url} username={data.username} />
               )}

@@ -29,9 +29,9 @@ function ChannelsSection({ slug, isAdmin }: { slug: string; isAdmin: boolean }) 
       <h2 className="text-sm font-semibold">Channels</h2>
       {query.isPending && <Skeleton className="h-20 w-full" />}
       {query.data?.map((ch) => (
-        <div key={ch.slug} className="flex items-center gap-3 rounded-xl bg-secondary p-3">
+        <div key={ch.slug} className="flex items-center gap-3 rounded-xl bg-card border p-3 hover:bg-accent">
           <Link to={`/clubs/${slug}/channels/${ch.slug}`} className="flex-1">
-            <p className="text-sm font-medium"># {ch.name}</p>
+            <p className="text-sm font-medium text-foreground"># {ch.name}</p>
             {ch.description && <p className="text-xs text-muted-foreground">{ch.description}</p>}
           </Link>
           {isAdmin && (
@@ -62,12 +62,12 @@ function ChannelsSection({ slug, isAdmin }: { slug: string; isAdmin: boolean }) 
       {isAdmin && (
         <div className="space-y-2 border-t pt-3">
           <p className="text-xs font-medium">Создать канал (owner/admin)</p>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="general" className="w-full rounded-xl border px-3 py-1.5 text-sm" />
-          <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Описание (необязательно)" className="w-full rounded-xl border px-3 py-1.5 text-sm" />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="general" className="w-full rounded-xl border bg-background text-foreground placeholder:text-muted-foreground px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2" />
+          <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Описание (необязательно)" className="w-full rounded-xl border bg-background text-foreground placeholder:text-muted-foreground px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2" />
           <Button size="sm" onClick={() => createMut.mutate()} disabled={createMut.isPending || !name.trim()}>
             Создать
           </Button>
-          {createMut.isError && <p className="text-xs text-red-500">{(createMut.error as Error).message}</p>}
+          {createMut.isError && <p className="text-xs text-red-500" role="alert">{(createMut.error as Error).message}</p>}
         </div>
       )}
       {!isAdmin && query.data?.length === 0 && <p className="text-xs text-muted-foreground">Пока нет каналов</p>}
@@ -184,7 +184,7 @@ export function ClubPage() {
               {me && m.username !== me.username && (isOwner || (isAdmin && m.role === "member") || (m.role === "member" && club.role === "moderator")) && (
                 <div className="flex gap-1">
                   {isOwner && m.role !== "owner" && (
-                    <select value={m.role} onChange={(e) => clubsApi.updateRole(slug!, m.username, e.target.value).then(() => membersQuery.refetch()).catch((err) => setMsg(err.message))} className="rounded-lg border px-2 py-1 text-xs">
+                    <select value={m.role} onChange={(e) => clubsApi.updateRole(slug!, m.username, e.target.value).then(() => membersQuery.refetch()).catch((err) => setMsg(err.message))} className="rounded-lg border bg-background text-foreground px-2 py-1 text-xs focus:ring-2 focus:ring-ring outline-none">
                       <option value="member">member</option>
                       <option value="moderator">moderator</option>
                       <option value="admin">admin</option>

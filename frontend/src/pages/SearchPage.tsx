@@ -24,7 +24,7 @@ export function SearchPage() {
   const typeParam = (searchParams.get("type") as any) || "all";
   const [q, setQ] = useState(qParam);
   const debounced = useDebounce(q, 400);
-  const [tab, setTab] = useState<"all" | "users" | "posts" | "hashtags" | "projects">(typeParam);
+  const [tab, setTab] = useState<"all" | "users" | "posts" | "hashtags" | "projects" | "clubs">(typeParam);
   const [result, setResult] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +79,7 @@ export function SearchPage() {
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {(["all", "users", "posts", "hashtags", "projects"] as const).map((t) => (
+          {(["all", "users", "posts", "clubs", "projects", "hashtags"] as const).map((t) => (
             <button
               key={t}
               onClick={() => handleTab(t)}
@@ -148,6 +148,22 @@ export function SearchPage() {
                     <p className="text-sm font-medium">{p.name}</p>
                     <p className="text-xs text-muted-foreground line-clamp-2">{p.description}</p>
                     {p.technologies?.length > 0 && <p className="text-[11px] text-muted-foreground">{p.technologies.join(" · ")}</p>}
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
+          {(tab === "all" || tab === "clubs") && (
+            <div className="space-y-2">
+              <h2 className="text-sm font-semibold">Клубы ({result.clubs?.length ?? 0})</h2>
+              {(result.clubs?.length ?? 0) === 0 ? (
+                <p className="text-xs text-muted-foreground">Клубов не нашли</p>
+              ) : (
+                result.clubs.map((c) => (
+                  <Link key={c.id} to={`/clubs/${c.slug}`} className="block rounded-xl border bg-card p-3 hover:bg-accent space-y-1">
+                    <p className="text-sm font-medium">{c.name}</p>
+                    <p className="text-xs text-muted-foreground">/{c.slug}</p>
+                    {c.description && <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>}
                   </Link>
                 ))
               )}

@@ -26,4 +26,7 @@ export const authApi = {
   logout(): Promise<void> {
     return api.post<void>("/api/v1/auth/logout", {});
   },
+  demo(): Promise<UserRead> {
+    return api.post<UserRead>("/api/v1/auth/demo", {});
+  },
 };

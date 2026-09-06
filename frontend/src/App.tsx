@@ -20,7 +20,7 @@ const ProfilePage = lazy(() => import("@/pages/ProfilePage").then(m => ({ defaul
 const PostDetailPage = lazy(() => import("@/pages/PostDetailPage").then(m => ({ default: m.PostDetailPage })));
 const BookmarksPage = lazy(() => import("@/pages/BookmarksPage").then(m => ({ default: m.BookmarksPage })));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage").then(m => ({ default: m.SettingsPage })));
-const PlaceholderPage = lazy(() => import("@/pages/PlaceholderPage").then(m => ({ default: m.PlaceholderPage })));
+const MessagesPage = lazy(() => import("@/pages/MessagesPage").then(m => ({ default: m.MessagesPage })));
 
 function Fallback() {
   return <div className="mx-auto max-w-2xl p-6"><Skeleton className="h-32 w-full rounded-2xl" /></div>;
@@ -38,7 +38,7 @@ const router = createBrowserRouter([
     errorElement: <NotFoundPage />,
     children: [
       { path: "/", element: <Suspense fallback={<Fallback />}><FeedPage /></Suspense> },
-      { path: "/explore", element: <Suspense fallback={<Fallback />}><PlaceholderPage titleKey="nav.explore" fallbackTitle="Explore" description="Рекомендации и популярное среди IT-сообщества." /></Suspense> },
+      { path: "/explore", element: <Suspense fallback={<Fallback />}><SearchPage /></Suspense> },
       { path: "/search", element: <Suspense fallback={<Fallback />}><SearchPage /></Suspense> },
       { path: "/hashtags/:name", element: <Suspense fallback={<Fallback />}><HashtagPage /></Suspense> },
       { path: "/clubs", element: <Suspense fallback={<Fallback />}><ClubsPage /></Suspense> },
@@ -46,7 +46,7 @@ const router = createBrowserRouter([
       { path: "/clubs/:slug/channels/:channelSlug", element: <Suspense fallback={<Fallback />}><ClubChannelPage /></Suspense> },
       { path: "/projects", element: <Suspense fallback={<Fallback />}><ProjectsPage /></Suspense> },
       { path: "/projects/:projectId", element: <Suspense fallback={<Fallback />}><ProjectDetailPage /></Suspense> },
-      { path: "/messages", element: <Suspense fallback={<Fallback />}><PlaceholderPage titleKey="nav.messages" fallbackTitle="Messages" description="Личные сообщения и каналы клубов (WebSocket-ready)." /></Suspense> },
+      { path: "/messages", element: <Suspense fallback={<Fallback />}><MessagesPage /></Suspense> },
       { path: "/notifications", element: <Suspense fallback={<Fallback />}><NotificationsPage /></Suspense> },
       { path: "/profile", element: <Suspense fallback={<Fallback />}><ProfilePage /></Suspense> },
       { path: "/profile/:username", element: <Suspense fallback={<Fallback />}><ProfilePage /></Suspense> },

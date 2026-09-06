@@ -12,6 +12,7 @@ from app.models.post import Post, Hashtag
 from app.models.follow import Follow
 from app.models.social import PostLike, Comment, PostRepost, Bookmark
 from app.models.project import Project
+from app.models.club import Club
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -48,14 +49,14 @@ def _post_enrich(posts, db, q_user_id=None):
     return result
 
 @router.get("", response_model=dict)
-def search(q: str = Query("", max_length=MAX_Q_LEN), type: str = Query("all", pattern="^(all|users|posts|hashtags|projects)$"), limit: int = Query(10, ge=1, le=50), offset: int = Query(0, ge=0), db: Session = Depends(get_db), _rl: bool = Depends(rate_limit(limit=30, window=60, key_prefix="search"))):
+def search(q: str = Query("", max_length=MAX_Q_LEN), type: str = Query("all", pattern="^(all|users|posts|hashtags|projects|clubs)$"), limit: int = Query(10, ge=1, le=50), offset: int = Query(0, ge=0), db: Session = Depends(get_db), _rl: bool = Depends(rate_limit(limit=30, window=60, key_prefix="search"))):
     q = (q or "").strip()
     if not q:
-        return {"users": [], "posts": [], "hashtags": [], "projects": [], "query": q}
+        return {"users": [], "posts": [], "hashtags": [], "projects": [], "clubs": [], "query": q}
     if len(q) > MAX_Q_LEN:
         raise HTTPException(status_code=422, detail="Query too long")
     # optional current user for is_following/liked flags — try to get from cookie but search is public, so no auth required
-    result = {"query": q, "users": [], "posts": [], "hashtags": [], "projects": []}
+    result = {"query": q, "users": [], "posts": [], "hashtags": [], "projects": [], "clubs": []}
     q_lower = _escape_like(q.lower().lstrip("#"))
     # Users
     if type in ("all", "users"):
@@ -106,4 +107,9 @@ def search(q: str = Query("", max_length=MAX_Q_LEN), type: str = Query("all", pa
             }
             for p in projects
         ]
+    # Clubs — search by name / slug / description
+    if type in ("all", "clubs"):
+        like = f"%{q_lower}%"
+        clubs = db.query(Club).filter(or_(func.lower(Club.name).like(like, escape="\\"), func.lower(Club.slug).like(like, escape="\\"), func.lower(Club.description).like(like, escape="\\"))).order_by(Club.created_at.desc()).limit(min(limit,50)).offset(offset).all()
+        result["clubs"] = [{"id": str(c.id), "name": c.name, "slug": c.slug, "description": (c.description or "")[:200], "members_count": 0, "created_at": c.created_at.isoformat() if c.created_at else None} for c in clubs]
     return result

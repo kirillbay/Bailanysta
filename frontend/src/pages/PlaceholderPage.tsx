@@ -25,16 +25,16 @@ export function PlaceholderPage({
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
-        <Badge className="ml-auto">STEP 1 — заглушка</Badge>
+        <Badge className="ml-auto">Soon</Badge>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="h-4 w-4" /> Скоро здесь будет: {title.toLowerCase()}
+            <Sparkles className="h-4 w-4" /> {title}
           </CardTitle>
           <CardDescription>
-            Архитектура готова — страница подключена к роутеру и i18n. Контент появится в следующих STEP без переписывания foundation.
+            {t("common.comingSoon", "Скоро")} — раздел в разработке.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex gap-2">
@@ -45,7 +45,7 @@ export function PlaceholderPage({
       </Card>
 
       <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-        Feed · Clubs · Messages · Projects — всё это будет здесь, но STEP 1 — только foundation.
+        {title} — скоро здесь появится контент.
       </div>
     </div>
   );

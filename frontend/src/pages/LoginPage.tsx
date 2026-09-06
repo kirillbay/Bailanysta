@@ -41,6 +41,22 @@ export function LoginPage() {
     }
   };
 
+  const [demoLoading, setDemoLoading] = useState(false);
+  const onDemo = async () => {
+    setDemoLoading(true);
+    setServerError(null);
+    try {
+      await authApi.demo();
+      await qc.invalidateQueries({ queryKey: ["auth", "me"] });
+      navigate("/", { replace: true });
+    } catch (e) {
+      const err = e as ApiError;
+      setServerError(err.message || t("common.error", "Ошибка"));
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-md space-y-6 pt-6">
       <Card>
@@ -86,6 +102,19 @@ export function LoginPage() {
               {t("auth.register")}
             </Link>
           </p>
+        </CardContent>
+      </Card>
+
+      <Card className="border-dashed">
+        <CardContent className="p-4 space-y-3">
+          <div className="text-center space-y-1">
+            <p className="text-sm font-medium">Попробовать без регистрации</p>
+            <p className="text-xs text-muted-foreground">Регистрация не требуется — откроется готовый демонстрационный аккаунт. Есть полный вход и регистрация — демо позволяет сразу посмотреть платформу без создания аккаунта.</p>
+          </div>
+          <Button variant="outline" className="w-full" onClick={onDemo} disabled={demoLoading} aria-label="Войти в демо">
+            {demoLoading ? "Загрузка..." : "Войти в демо"}
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">Демо: <span className="font-medium">demo</span> · готовая лента, проекты, клубы</p>
         </CardContent>
       </Card>
     </div>

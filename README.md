@@ -125,6 +125,15 @@ Bailanysta/
 
 Подробнее: `DEPLOYMENT.md §0` — `install.ps1` комментарии, troubleshooting, backup.
 
+### Demo Mode (для проверяющих)
+
+На `http://localhost:5173/login` и `/register` есть кнопка **«Войти в демо»**:
+
+- Регистрация не требуется — создаётся/используется `demo / demo@bailanysta.demo` через обычный `POST /api/v1/auth/demo` → `HttpOnly` cookie, обычная сессия.
+- Демо-аккаунт уже содержит: посты, комментарии, лайки, подписки, stories, клуб `demo-club` с каналом `general` и сообщениями, проекты с GitHub/demo links.
+- Demo использует **тот же auth/authorization**, без обхода — безопасно, rate limited 10/min.
+- Есть полный вход/регистрация — демо просто ускоряет просмотр для комиссии.
+
 ---
 
 ## ⚡ Quick Start (for developers, after STEP 1)

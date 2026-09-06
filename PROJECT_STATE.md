@@ -2,13 +2,15 @@
 
 > Persistent memory проекта. Обновляется после КАЖДОГО STEP.
 > Протокол: PERSISTENT DEVELOPMENT PROTOCOL (2026-09-05)
-> Последнее обновление: 2026-09-05 (FINAL PRODUCT QA + Local Dev) — PROJECT COMPLETE — 281 tests, local journey PASS, Docker installed pending reboot
+> Последнее обновление: 2026-09-05 (DEMO READINESS — registration fix + Demo Mode) — PROJECT COMPLETE — 283 tests, local journey PASS
 
 ---
 
 ## 1. Текущий STEP
 
-**STEP 17 — Final QA, Release Audit & Demo Readiness — ЗАВЕРШЁН ✅ — PROJECT COMPLETE**
+**STEP 17 + DEMO READINESS — ЗАВЕРШЁН ✅ — PROJECT COMPLETE**
+
+- Demo: `POST /api/v1/auth/demo` `demo/demo@bailanysta.demo` normal cookie, demo data (posts, clubs, messages, projects)
 
 - Workspace: `C:\Users\lueex\Desktop\Bailanysta`
 - Branch: `main` | Последний commit: `feat: STEP 17 — final QA and release readiness` (см. §17)

@@ -2351,4 +2351,39 @@ PASS WITH LIMITATIONS — все P0/P1 flows работают, P2/P3 тольк�
 
 ---
 
+
+## DEMO READINESS — 2026-09-05 (Post-Final QA)
+
+### Issues Fixed
+
+- **CRITICAL**: `dev_bailanysta.db` 0-byte → `Base.metadata.create_all` without `import app.models` → `500 Internal server error` on `POST /api/v1/auth/register` → `Failed to fetch` in Chrome. Fixed by recreating DB with `import app.models` (364KB, 17 tables) and adding `test_browser_register.py` regression (2 tests).
+
+### Demo Mode
+
+- Backend `POST /api/v1/auth/demo` — creates `demo/demo@bailanysta.demo/Demo123!` if not exists, ensures demo data (3 posts, likes/comments, follows, story, club demo-club + general channel + 3 messages, 2 projects), sets normal `HttpOnly` cookie, rate limit 10/min.
+- Frontend `LoginPage` + `RegisterPage` — Card `border-dashed` with `Войти в демо` button + description, calls `authApi.demo()` → `qc.invalidateQueries` → `navigate("/")`.
+
+### Search
+
+- Backend `search.py` + `clubs` type (name/slug/description), `type` pattern `all|users|posts|hashtags|projects|clubs`, result `clubs: []`.
+- Frontend `api/search.ts` + `clubs` type, `SearchPage.tsx` + `clubs` tab + rendering `/{slug}` + description, unify `explore` → `SearchPage` (was Placeholder).
+
+### Messages
+
+- New `frontend/src/pages/MessagesPage.tsx` — lists user clubs, selects club → lists channels via `clubChannelsApi.list`, `Link` to `/clubs/:slug/channels/:channelSlug`, empty states `Каналы клубов` + `Личные сообщения — скоро`, responsive `grid lg:280px+1fr`.
+
+### UI Fixes
+
+- `ClubPage.tsx` — channel inputs `bg-background text-foreground placeholder:text-muted-foreground focus:ring-2` + card `bg-card border hover:bg-accent` + select `bg-background` (fix bad contrast light/dark).
+- `ProfilePage.tsx` — avatar `h-24 w-24 border-4 shadow-sm` + cover `h-40` + `-mt-14` (fix B overflow, better composition).
+- `PlaceholderPage.tsx` — removed `STEP 1 — заглушка` badge, now `Soon` neutral.
+
+### Tests
+
+- `pytest -q` 283 passed (was 281, +2 browser_register)
+- `tsc --noEmit` PASS
+- `npm run build` 474.40kB PASS
+
+---
+
 <!-- Шаблон для следующего STEP
