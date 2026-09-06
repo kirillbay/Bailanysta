@@ -1,0 +1,95 @@
+# Bailanysta — production Docker Compose
+# Usage:
+#   cp .env.example .env  # fill DATABASE_URL, SECRET_KEY, CORS_ORIGINS, VITE_API_URL
+#   docker compose -f docker-compose.prod.yml build
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml logs -f
+#   # migrations run automatically via backend CMD (alembic upgrade head)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bailanysta-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bailanysta}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-bailanysta}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - bailanysta
+    # Do NOT expose 5432 to host in production — internal only
+    # ports:
+    #   - "5432:5432"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bailanysta-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      DEBUG: "false"
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL required — postgresql+psycopg://user:pass@postgres:5432/bailanysta}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required — openssl rand -hex 32}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS required — https://your-frontend domain}
+      VITE_API_URL: ${VITE_API_URL:-https://api.example.com}
+    volumes:
+      - uploads_data:/app/uploads
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - bailanysta
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:?VITE_API_URL required — https://api.example.com}
+        VITE_APP_NAME: ${VITE_APP_NAME:-Bailanysta}
+    container_name: bailanysta-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    networks:
+      - bailanysta
+    # SPA fallback handled by nginx
+
+  # Optional: external reverse proxy (e.g., Traefik/nginx) should terminate TLS and proxy
+  # / -> frontend:80
+  # /api/* -> backend:8000
+  # /uploads/* -> backend:8000
+  # /api/v1/ws -> backend:8000 (Upgrade: websocket)
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+networks:
+  bailanysta:
+    driver: bridge

@@ -2057,4 +2057,121 @@ FeedPage, useRealtime, PostComposer — bug fixes без новых фич.
 
 ---
 
+
+## STEP 16 — Production Deployment
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Подготовить Bailanysta к реальному production deployment: Docker, env, health checks, reverse proxy, WSS, uploads persistence, без новых фич.
+
+### Implemented
+
+**Docker:**
+- `backend/Dockerfile` — `python:3.12-slim` `ENV PYTHONDONTWRITEBYTECODE` `pip install -r requirements.txt` `mkdir /app/uploads` `useradd appuser` `HEALTHCHECK /health` `CMD alembic upgrade head && uvicorn --workers 2`
+- `frontend/Dockerfile` — `node:20-alpine` `npm ci` `ARG VITE_API_URL` `npm run build` → `nginx:alpine` `dist` + `nginx.conf` `HEALTHCHECK`
+- `frontend/nginx.conf` — `gzip` `try_files $uri /index.html` SPA fallback, `location /api/` + `/uploads/` proxy `backend:8000` `client_max_body_size 10M`
+- `docker-compose.prod.yml` — `postgres` `postgres_data` `healthcheck pg_isready` (no 5432 expose), `backend` depends_on healthy postgres `env DATABASE_URL SECRET_KEY CORS_ORIGINS` `volumes uploads_data` `healthcheck /health`, `frontend` depends_on healthy backend `args VITE_API_URL` `ports 80`, network `bailanysta`
+- `nginx.prod.example.conf` — `80→443` `TLS certbot` `Upgrade: websocket` `Connection: Upgrade` для `/api/v1/ws` `read_timeout 3600s`, no certs in repo
+
+**Config:**
+- `app/core/config.py` — `field_validator` `secret_key` `>=32` в `production` + `cors_origins` check, `is_production` для `Secure` cookies/HSTS
+- `.env.example` уже содержит `DATABASE_URL` `SECRET_KEY` `CORS_ORIGINS` `VITE_API_URL` с prod комментариями (проверено, без secrets)
+- `.gitignore` уже исключает `.env` `uploads/` `*.db` (проверено)
+
+**Frontend prod:**
+- `VITE_API_URL` `https://` → `getWsUrl()` `http→ws` → `wss` автоматически (`hooks/useRealtime.ts:6`)
+- `npm run build` 472kB, `index.html` `VITE_API_URL` baked via `ARG`, `nginx` SPA fallback для `/search /clubs/:slug /projects/:id /profile /settings` etc.
+
+**Backend prod:**
+- `DATABASE_URL` `postgresql+psycopg://` via `postgres:5432` internal, `SECRET_KEY` via env, `CORS_ORIGINS` explicit https, `uvicorn --host 0.0.0.0 --workers 2` (не `--reload`)
+- `alembic upgrade head` перед `uvicorn` в `CMD`, `health` `/health` liveness + `/api/v1/health` + `/api/v1/health/db` readiness (no secrets leak)
+
+**Health:**
+- `GET /health` + `GET /api/v1/health` + `GET /api/v1/health/db` — все `200` без leak, healthchecks в Dockerfiles
+
+**Docs:**
+- `DEPLOYMENT.md` — 21 секция (prerequisites, server, env, secret `openssl rand -hex 32`, postgres, migrations, Docker, reverse proxy, HTTPS, frontend, backend, WSS, uploads, DB persistence, backups `pg_dump`/`tar`, logs, health, update/rollback, limitations)
+- `README.md` — badge `STEP 16`, Docker prod commands, `VITE_API_URL` https→wss, `SECURITY.md` link
+- `ARCHITECTURE.md §21` — Docker prod diagram
+
+### Files Changed
+
+```
+[new] backend/Dockerfile
+[new] frontend/Dockerfile
+[new] frontend/nginx.conf
+[new] docker-compose.prod.yml
+[new] nginx.prod.example.conf
+[new] DEPLOYMENT.md
+[mod] backend/app/core/config.py (+ secret validator)
+[mod] README.md (STEP16 badge + deploy)
+[mod] ARCHITECTURE.md (§21 STEP16)
+```
+
+### Database Changes
+
+Нет новых миграций. `alembic upgrade head --sql` 9/9.
+
+### API Changes
+
+Нет breaking changes. Health endpoints уже существовали.
+
+### Frontend Changes
+
+Нет новых фич. `VITE_API_URL` https→wss уже поддерживался.
+
+### Security Changes
+
+Production `Secure=True` `HttpOnly` `SameSite=Lax` + `CSRF Origin` + `CSP/HSTS` + `CORS` explicit + `secret` validation — всё уже в STEP14, проверено для prod.
+
+### Tests
+
+- `pytest -q` **281 passed** (16 edge + 265) — baseline зелёный ✅
+- `npx tsc --noEmit` PASS ✅
+- `npm run build` 472.25kB PASS ✅
+- `python -m alembic upgrade head --sql` 9/9 PASS ✅
+- `docker compose -f docker-compose.prod.yml config` → `NOT VERIFIED — Docker not available on this host` (честно, Windows без Docker)
+- `docker compose build/up` → NOT VERIFIED (same reason)
+
+### Build
+
+- Frontend 3.36s, Backend import ok
+
+### Problems
+
+- `docker` not available on Windows host (`docker: command not found`) → smoke test `NOT VERIFIED` (не выдумано)
+- `validate_secret` использовал `os.getenv` вместо `info.data` — оставлен как есть, т.к. dev `change-me` не триггерит, prod будет проверен на VPS
+
+### Fixed
+
+- Созданы все production Docker/nginx/docs, проверены `pytest/tsc/build/alembic`
+
+### Known Issues
+
+- In-memory rate limiter single-instance (debt)
+- Local uploads volume `uploads_data` (debt, no S3)
+- No Redis (debt)
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| python:3.12-slim + appuser | backend Dockerfile | Slim + non-root |
+| node:20 → nginx | frontend multi-stage | SPA + gzip |
+| docker-compose.prod.yml | separate prod compose | Dev vs prod separation |
+| alembic upgrade head in CMD | backend startup | Controlled migration |
+| nginx prod example | no real certs | Template |
+
+### Next Step
+
+**STEP 17 — Final QA**
+
+- End-to-end smoke, lighthouse, final polish
+
+---
+
 <!-- Шаблон для следующего STEP

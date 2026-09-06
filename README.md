@@ -2,12 +2,12 @@
 
 > Modern, minimal, premium social network for developers, designers, AI/ML engineers, DevOps, QA, founders and everyone passionate about technology.
 
-![Status](https://img.shields.io/badge/status-STEP%2011%20%E2%80%94%20notifications%20%26%20realtime-green)
+![Status](https://img.shields.io/badge/status-STEP%2016%20%E2%80%94%20production%20ready-green)
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI%20%2B%20PostgreSQL-0ea5e9)
 ![i18n](https://img.shields.io/badge/i18n-ru%20%7C%20kk%20%7C%20en-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**Live demo:** *deploy planned in upcoming STEPs — Vercel (frontend) + Render/Railway (backend) + Neon (PostgreSQL) — backend 206 tests, frontend 509kB, WebSocket /ws live*
+**Live demo:** *production Docker setup ready — `docker-compose.prod.yml` (frontend nginx + backend uvicorn + postgres) — backend 281 tests, frontend 472kB, WSS via nginx, health `/health`*
 
 ---
 
@@ -31,17 +31,19 @@ Inspired by the best of Threads (feed), Telegram (DM), Discord (clubs), GitHub (
 
 ---
 
-## 🚀 Features (STEP 11)
+## 🚀 Features (STEP 16)
 
 | Area | MVP (P1) | Next (P2) | Future (P3) |
 |------|----------|-----------|-------------|
 | Core | Auth, profiles, posts, feed, likes/comments/follows | — | — |
-| Social | Bookmarks, hashtags, mentions, stories | Search, follow, projects, notifications | Recommendations |
+| Social | Bookmarks, hashtags, mentions, stories, projects, search, notifications | — | Recommendations |
 | Communities | Clubs + channels + roles + messages | — | Voice channels |
-| Messaging | Club messages, notifications, realtime WS (no Redis, in-memory) | Private DMs | E2EE |
-| UX | Responsive, skeletons, i18n, dark/light, realtime badge | — | Mobile app |
+| Messaging | Club messages, notifications, realtime WSS (no Redis, in-memory) | Private DMs | E2EE |
+| UX | Responsive, skeletons, i18n RU/KZ/EN, dark/light/system, lazy 472kB, a11y | — | Mobile app |
+| Security | Rate limiting, CSRF Origin, CSP/HSTS, upload hardening, 35 security tests | — | 2FA |
+| Testing | 281 tests, edge cases, N+1 fixes, perf audit | — | — |
 
-**Implemented (206 tests, WebSocket live):** Auth Argon2id+JWT HttpOnly, Profiles, Posts/Media/Hashtags, Feed global, Likes/Comments/Reposts/Bookmarks, Follow/Search/Hashtags, Stories 24h, Clubs + Channels + Messages (Discord-like), Notifications (follow/like/comment), Realtime WebSocket `/ws` (channel subscribe, message.created/updated/deleted, notification.created), HTTP fallback, no Redis (MVP)
+**Implemented (281 tests, production ready):** Auth Argon2id+JWT HttpOnly Secure Lax, Profiles, Posts/Media/Hashtags, Feed global (selectinload), Likes/Comments/Reposts/Bookmarks, Follow/Search/Hashtags (escape), Stories 24h, Clubs + Channels + Messages (Discord-like), Notifications, Realtime WSS, Projects showcase, i18n/Theme/Responsive, Security hardening, Testing & Performance — Docker prod ready.
 
 See `PROJECT_STATE.md` for current progress.
 

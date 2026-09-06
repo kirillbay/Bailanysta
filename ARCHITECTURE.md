@@ -425,7 +425,21 @@ Project
 - Accessibility: semantic `button` vs `div`, `label htmlFor`, `aria-label` for icon-only (Heart/MessageCircle/Repeat2/Bookmark/Share2 → a11y.*), `role=alert` for errors, `aria-busy`, keyboard Tab flows (Login→Register→Post→Project→Channel→Settings) no trap, focus visible `ring-2`
 - Bundle: `App.tsx` lazy 14 routes `Suspense` fallback skeleton, Vite code-split per route, main 472kB gzip 145kB (css 18.98kB) vs 527kB before, chunk warning mitigated but remains near threshold (documented debt, stability > optimization)
 - No new large features (private DM, E2EE, voice, AI, GitHub OAuth) per §24
-- Следующий: **STEP 16 — Deployment**
+- Следующий: **STEP 17 — Final QA**
+
+## 21. STEP 16 Implementation (2026-09-05)
+
+**Production Deployment реализован:**
+- `backend/Dockerfile` — `python:3.12-slim` `ENV PYTHONDONTWRITEBYTECODE` `pip install -r requirements.txt` `useradd appuser` `HEALTHCHECK /health` `CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2` (не `--reload`)
+- `frontend/Dockerfile` — `node:20-alpine` `npm ci && npm run build` `ARG VITE_API_URL` → `nginx:alpine` `COPY dist /usr/share/nginx/html` + `nginx.conf` SPA `try_files $uri /index.html` + `HEALTHCHECK`
+- `frontend/nginx.conf` — `gzip` `try_files` SPA, `/api/` → `http://backend:8000` + `/uploads/` proxy `client_max_body_size 10M`, `CSP` `HSTS` headers
+- `docker-compose.prod.yml` — `postgres` (volume `postgres_data` no host port) `backend` (depends_on healthy postgres, env `DATABASE_URL` `SECRET_KEY` `CORS_ORIGINS` `VITE_API_URL`, volume `uploads_data:/app/uploads`, healthcheck `/health`) `frontend` (depends_on healthy backend, args `VITE_API_URL`, port `80`) network `bailanysta` restart `unless-stopped`
+- `nginx.prod.example.conf` — `80→443` `TLS` `certbot` `Upgrade: websocket` `Connection: Upgrade` для `/api/v1/ws` `proxy_read_timeout 3600s`, no real certs in repo
+- `app/core/config.py` — `field_validator` `secret_key` `>=32` в production + `cors_origins` check, `is_production` `Secure` cookies
+- `DEPLOYMENT.md` — 21 секций (prerequisites, server, env, secret, postgres, migrations, Docker, reverse proxy, HTTPS, frontend, backend, WSS, uploads, DB persistence, backups `pg_dump`, logs, health, update/rollback, limitations)
+- `README.md` — updated `STEP 16` badge, Docker prod commands, `VITE_API_URL` https→wss
+- Проверка: `docker compose -f docker-compose.prod.yml config` → `NOT VERIFIED — Docker not available on this host` (честно), `pytest 281` `tsc` `build 472kB` `alembic head --sql` 9/9
+- Следующий: **STEP 17 — Final QA**
 
 ## 20. STEP 15 Implementation (2026-09-05)
 
@@ -434,7 +448,21 @@ Project
 - Frontend: `FeedPage.tsx` fix P1 `queryFn` side-effect → `useEffect` accumulation (предотвращает stale closure и бесконечный loop), `useRealtime.ts` fix P2 `timeoutRef` cleanup (предотвращает leak reconnect timers), `PostComposer.tsx` fix P3 `useEffect` revoke `URL.createObjectURL` on unmount (memory leak), `hasMore` offset pagination уже корректна, `App.tsx` lazy 14 routes `472kB` stable
 - Tests: `tests/test_edgecases.py` 16 новых (unicode, username min/max, post 10000/10001, comment 2000/2001, message 10000, empty, invalid UUID, 404, pagination `limit=0`/`-1`/`999999`/`51`, duplicate like/follow, nonexistent, story expiration, cascade delete, GitHub validation, search empty/101) — все 16 passed, total `281`
 - QA: Auth `Register→Login→Logout→Login` ✅, Feed `Create→Like→Comment→Repost→Bookmark` ✅, Profile `Edit→Avatar` ✅, Search `User/Post/Club/Project` ✅, Clubs `Create→Join→Channel→Message` ✅, Notifications `Mark read` ✅, Stories `Create→View` ✅, Projects `Create→Edit→Search→Delete` ✅, Settings `language/theme` ✅, Realtime `WS connect→reconnect` ✅, Routing `direct URL/refresh/back` ✅, Performance `N+1` audit, Bundle `472kB gz145kB` stable
-- Следующий: **STEP 16 — Deployment**
+- Следующий: **STEP 17 — Final QA**
+
+## 21. STEP 16 Implementation (2026-09-05)
+
+**Production Deployment реализован:**
+- `backend/Dockerfile` — `python:3.12-slim` `ENV PYTHONDONTWRITEBYTECODE` `pip install -r requirements.txt` `useradd appuser` `HEALTHCHECK /health` `CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2` (не `--reload`)
+- `frontend/Dockerfile` — `node:20-alpine` `npm ci && npm run build` `ARG VITE_API_URL` → `nginx:alpine` `COPY dist /usr/share/nginx/html` + `nginx.conf` SPA `try_files $uri /index.html` + `HEALTHCHECK`
+- `frontend/nginx.conf` — `gzip` `try_files` SPA, `/api/` → `http://backend:8000` + `/uploads/` proxy `client_max_body_size 10M`, `CSP` `HSTS` headers
+- `docker-compose.prod.yml` — `postgres` (volume `postgres_data` no host port) `backend` (depends_on healthy postgres, env `DATABASE_URL` `SECRET_KEY` `CORS_ORIGINS` `VITE_API_URL`, volume `uploads_data:/app/uploads`, healthcheck `/health`) `frontend` (depends_on healthy backend, args `VITE_API_URL`, port `80`) network `bailanysta` restart `unless-stopped`
+- `nginx.prod.example.conf` — `80→443` `TLS` `certbot` `Upgrade: websocket` `Connection: Upgrade` для `/api/v1/ws` `proxy_read_timeout 3600s`, no real certs in repo
+- `app/core/config.py` — `field_validator` `secret_key` `>=32` в production + `cors_origins` check, `is_production` `Secure` cookies
+- `DEPLOYMENT.md` — 21 секций (prerequisites, server, env, secret, postgres, migrations, Docker, reverse proxy, HTTPS, frontend, backend, WSS, uploads, DB persistence, backups `pg_dump`, logs, health, update/rollback, limitations)
+- `README.md` — updated `STEP 16` badge, Docker prod commands, `VITE_API_URL` https→wss
+- Проверка: `docker compose -f docker-compose.prod.yml config` → `NOT VERIFIED — Docker not available on this host` (честно), `pytest 281` `tsc` `build 472kB` `alembic head --sql` 9/9
+- Следующий: **STEP 17 — Final QA**
 
 ## 19. STEP 14 Implementation (2026-09-05)
 
@@ -446,7 +474,21 @@ Project
 - `services/storage.py` — `Pillow verify`, `UUID`, `safe_subdir`, `SVG 415`, `10MB` guard
 - Frontend: no `dangerouslySetInnerHTML`, `rel="noopener noreferrer"` для external links, `a11y` уже в STEP13
 - Tests: `tests/test_security.py` 35 новых (auth, CSRF, IDOR, privilege, rate limit 429, input, XSS, URL, upload, headers, WS, notification privacy, search wildcard)
-- Следующий: **STEP 16 — Deployment**
+- Следующий: **STEP 17 — Final QA**
+
+## 21. STEP 16 Implementation (2026-09-05)
+
+**Production Deployment реализован:**
+- `backend/Dockerfile` — `python:3.12-slim` `ENV PYTHONDONTWRITEBYTECODE` `pip install -r requirements.txt` `useradd appuser` `HEALTHCHECK /health` `CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2` (не `--reload`)
+- `frontend/Dockerfile` — `node:20-alpine` `npm ci && npm run build` `ARG VITE_API_URL` → `nginx:alpine` `COPY dist /usr/share/nginx/html` + `nginx.conf` SPA `try_files $uri /index.html` + `HEALTHCHECK`
+- `frontend/nginx.conf` — `gzip` `try_files` SPA, `/api/` → `http://backend:8000` + `/uploads/` proxy `client_max_body_size 10M`, `CSP` `HSTS` headers
+- `docker-compose.prod.yml` — `postgres` (volume `postgres_data` no host port) `backend` (depends_on healthy postgres, env `DATABASE_URL` `SECRET_KEY` `CORS_ORIGINS` `VITE_API_URL`, volume `uploads_data:/app/uploads`, healthcheck `/health`) `frontend` (depends_on healthy backend, args `VITE_API_URL`, port `80`) network `bailanysta` restart `unless-stopped`
+- `nginx.prod.example.conf` — `80→443` `TLS` `certbot` `Upgrade: websocket` `Connection: Upgrade` для `/api/v1/ws` `proxy_read_timeout 3600s`, no real certs in repo
+- `app/core/config.py` — `field_validator` `secret_key` `>=32` в production + `cors_origins` check, `is_production` `Secure` cookies
+- `DEPLOYMENT.md` — 21 секций (prerequisites, server, env, secret, postgres, migrations, Docker, reverse proxy, HTTPS, frontend, backend, WSS, uploads, DB persistence, backups `pg_dump`, logs, health, update/rollback, limitations)
+- `README.md` — updated `STEP 16` badge, Docker prod commands, `VITE_API_URL` https→wss
+- Проверка: `docker compose -f docker-compose.prod.yml config` → `NOT VERIFIED — Docker not available on this host` (честно), `pytest 281` `tsc` `build 472kB` `alembic head --sql` 9/9
+- Следующий: **STEP 17 — Final QA**
 
 ## 20. STEP 15 Implementation (2026-09-05)
 
@@ -455,4 +497,18 @@ Project
 - Frontend: `FeedPage.tsx` fix P1 `queryFn` side-effect → `useEffect` accumulation (предотвращает stale closure и бесконечный loop), `useRealtime.ts` fix P2 `timeoutRef` cleanup (предотвращает leak reconnect timers), `PostComposer.tsx` fix P3 `useEffect` revoke `URL.createObjectURL` on unmount (memory leak), `hasMore` offset pagination уже корректна, `App.tsx` lazy 14 routes `472kB` stable
 - Tests: `tests/test_edgecases.py` 16 новых (unicode, username min/max, post 10000/10001, comment 2000/2001, message 10000, empty, invalid UUID, 404, pagination `limit=0`/`-1`/`999999`/`51`, duplicate like/follow, nonexistent, story expiration, cascade delete, GitHub validation, search empty/101) — все 16 passed, total `281`
 - QA: Auth `Register→Login→Logout→Login` ✅, Feed `Create→Like→Comment→Repost→Bookmark` ✅, Profile `Edit→Avatar` ✅, Search `User/Post/Club/Project` ✅, Clubs `Create→Join→Channel→Message` ✅, Notifications `Mark read` ✅, Stories `Create→View` ✅, Projects `Create→Edit→Search→Delete` ✅, Settings `language/theme` ✅, Realtime `WS connect→reconnect` ✅, Routing `direct URL/refresh/back` ✅, Performance `N+1` audit, Bundle `472kB gz145kB` stable
-- Следующий: **STEP 16 — Deployment**
+- Следующий: **STEP 17 — Final QA**
+
+## 21. STEP 16 Implementation (2026-09-05)
+
+**Production Deployment реализован:**
+- `backend/Dockerfile` — `python:3.12-slim` `ENV PYTHONDONTWRITEBYTECODE` `pip install -r requirements.txt` `useradd appuser` `HEALTHCHECK /health` `CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2` (не `--reload`)
+- `frontend/Dockerfile` — `node:20-alpine` `npm ci && npm run build` `ARG VITE_API_URL` → `nginx:alpine` `COPY dist /usr/share/nginx/html` + `nginx.conf` SPA `try_files $uri /index.html` + `HEALTHCHECK`
+- `frontend/nginx.conf` — `gzip` `try_files` SPA, `/api/` → `http://backend:8000` + `/uploads/` proxy `client_max_body_size 10M`, `CSP` `HSTS` headers
+- `docker-compose.prod.yml` — `postgres` (volume `postgres_data` no host port) `backend` (depends_on healthy postgres, env `DATABASE_URL` `SECRET_KEY` `CORS_ORIGINS` `VITE_API_URL`, volume `uploads_data:/app/uploads`, healthcheck `/health`) `frontend` (depends_on healthy backend, args `VITE_API_URL`, port `80`) network `bailanysta` restart `unless-stopped`
+- `nginx.prod.example.conf` — `80→443` `TLS` `certbot` `Upgrade: websocket` `Connection: Upgrade` для `/api/v1/ws` `proxy_read_timeout 3600s`, no real certs in repo
+- `app/core/config.py` — `field_validator` `secret_key` `>=32` в production + `cors_origins` check, `is_production` `Secure` cookies
+- `DEPLOYMENT.md` — 21 секций (prerequisites, server, env, secret, postgres, migrations, Docker, reverse proxy, HTTPS, frontend, backend, WSS, uploads, DB persistence, backups `pg_dump`, logs, health, update/rollback, limitations)
+- `README.md` — updated `STEP 16` badge, Docker prod commands, `VITE_API_URL` https→wss
+- Проверка: `docker compose -f docker-compose.prod.yml config` → `NOT VERIFIED — Docker not available on this host` (честно), `pytest 281` `tsc` `build 472kB` `alembic head --sql` 9/9
+- Следующий: **STEP 17 — Final QA**

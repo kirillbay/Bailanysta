@@ -2,21 +2,21 @@
 
 > Persistent memory проекта. Обновляется после КАЖДОГО STEP.
 > Протокол: PERSISTENT DEVELOPMENT PROTOCOL (2026-09-05)
-> Последнее обновление: 2026-09-05 (STEP 15 — Full Testing, Bug Fixing & Performance)
+> Последнее обновление: 2026-09-05 (STEP 16 — Production Deployment)
 
 ---
 
 ## 1. Текущий STEP
 
-**STEP 15 — Full Testing, Bug Fixing & Performance — ЗАВЕРШЁН ✅**
+**STEP 16 — Production Deployment — ЗАВЕРШЁН ✅**
 
 - Workspace: `C:\Users\lueex\Desktop\Bailanysta`
-- Branch: `main` | Последний commit: `feat: STEP 15 — full testing bug fixing and performance` (см. §17)
-- Статус: Full audit — N+1 fix, FeedPage side-effect fix, WS timer leak fix, edge tests 16, rate limiter memory fix — 281 тестов зелёных
+- Branch: `main` | Последний commit: `feat: STEP 16 — production deployment setup` (см. §17)
+- Статус: Docker prod ready — nginx SPA + backend uvicorn + postgres volumes + WSS + health + env + docs — 281 тестов зелёных
 
-**Последний завершённый STEP:** STEP 15 — Full Testing, Bug Fixing & Performance (2026-09-05)
+**Последний завершённый STEP:** STEP 16 — Production Deployment (2026-09-05)
 
-**Следующий рекомендуемый STEP:** STEP 16 — Deployment
+**Следующий рекомендуемый STEP:** STEP 17 — Final QA
 
 ---
 
@@ -40,9 +40,10 @@
 | 12 | Projects & Developer Showcase | 2026-09-05 | `5df2378` | ✅ Done |
 | 13 | i18n, Theme, Responsive & Accessibility | 2026-09-05 | `59032d6` | ✅ Done |
 | 14 | Security Hardening & Abuse Protection | 2026-09-05 | `7522d82` | ✅ Done |
-| 15 | Full Testing, Bug Fixing & Performance | 2026-09-05 | `feat STEP15` | ✅ Done |
+| 15 | Full Testing, Bug Fixing & Performance | 2026-09-05 | `c05c325` | ✅ Done |
+| 16 | Production Deployment | 2026-09-05 | `feat STEP16` | ✅ Done |
 
-> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications/Realtime ✅ → 12 Projects ✅ → 13 i18n/Theme/Responsive ✅ → 14 Security Hardening ✅ → 15 Testing/Perf ✅ → 16 Deployment → 17 Final QA
+> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications/Realtime ✅ → 12 Projects ✅ → 13 i18n/Theme/Responsive ✅ → 14 Security Hardening ✅ → 15 Testing/Perf ✅ → 16 Deployment ✅ → 17 Final QA
 
 ---
 
@@ -178,9 +179,11 @@ Project
 
 ## 10. Deployment Status
 
-- Frontend: Vercel candidate — build 472kB lazy, QA passed
-- Backend: Render/Railway — performance N+1 fixed, rate limiting, uploads/projects, manager in-memory
-- DB: docker-compose postgres:16-alpine
+- Frontend: `frontend/Dockerfile` multi-stage nginx SPA `try_files` + `VITE_API_URL` https→wss — build 472kB, nginx prod ready
+- Backend: `backend/Dockerfile` python:3.12-slim + `alembic upgrade head && uvicorn --workers 2` + healthcheck `/health`
+- Compose: `docker-compose.prod.yml` postgres+backend+frontend volumes `postgres_data`+`uploads_data` network `bailanysta` healthchecks
+- Proxy: `nginx.prod.example.conf` HTTP→HTTPS + `/api`+`/uploads`+`/api/v1/ws` Upgrade headers + `CSP/HSTS`
+- DB: postgres:16-alpine persistent volume, no host expose prod
 
 ---
 
@@ -218,15 +221,15 @@ Project
 
 ## 14. Current Blockers
 
-- Нет блокеров. Готов к STEP16.
+- Нет блокеров. Готов к STEP17.
 
 ---
 
 ## 15. Next Recommended STEP
 
-**STEP 16 — Deployment**
+**STEP 17 — Final QA**
 
-- Vercel/Render deploy, env, domain, smoke
+- End-to-end smoke, lighthouse, final polish before public release
 
 ---
 
@@ -256,31 +259,33 @@ Project
 | 2026-09-05 | No new large features (private DM, E2EE, voice, AI) | Spec §24 |
 | 2026-09-05 | Rate limiting in-memory 20/min auth, 30/min search, CSRF Origin, CSP headers | Spec STEP14 |
 | 2026-09-05 | Feed N+1 selectinload + notifications bulk actor + FeedPage useEffect + WS timer cleanup | Spec STEP15 |
+| 2026-09-05 | Docker prod: nginx SPA, uvicorn workers, postgres volumes, WSS, health, env validation | Spec STEP16 |
 
 ---
 
 ## 17. Последний Git Commit
 
 ```
-feat: STEP 15 — full testing bug fixing and performance
+feat: STEP 16 — production deployment setup
 Branch: main | Status: clean (после commit)
-Testing: N+1 fixes + edge 16 tests + FeedPage/WS leaks + 281 total, build 472kB
+Deploy: Docker prod + nginx + WSS + health + env + docs, 281 tests
 ```
 
 ---
 
-## 18. Изменённые файлы (STEP 15)
+## 18. Изменённые файлы (STEP 16)
 
 ```
-[mod] backend/app/api/v1/feed.py (selectinload N+1 fix)
-[mod] backend/app/api/v1/notifications.py (bulk actor N+1 fix)
-[mod] backend/app/core/rate_limit.py (+ memory prune 5000)
-[mod] frontend/src/pages/FeedPage.tsx (useEffect accumulation fix P1)
-[mod] frontend/src/hooks/useRealtime.ts (timeout cleanup + useRef)
-[mod] frontend/src/components/PostComposer.tsx (object URL cleanup useEffect)
-[new] backend/app/tests/test_edgecases.py (16 edge tests)
-[mod] SECURITY.md (no new)
-[mod] ARCHITECTURE.md (§20 STEP15)
+[new] backend/Dockerfile (python:3.12-slim + alembic + uvicorn workers 2)
+[new] frontend/Dockerfile (node:20 build → nginx + SPA)
+[new] frontend/nginx.conf (SPA fallback + /api /uploads proxy + CSP)
+[new] docker-compose.prod.yml (postgres+backend+frontend volumes health)
+[new] nginx.prod.example.conf (HTTP→HTTPS + /api + /ws Upgrade)
+[new] DEPLOYMENT.md (20 sections)
+[mod] backend/app/core/config.py (+ secret validator + cors check)
+[mod] README.md (STEP16 status + deploy docs)
+[mod] .env.example (prod comments)
+[mod] ARCHITECTURE.md (§21 STEP16)
 ```
 
 ---

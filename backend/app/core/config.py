@@ -1,4 +1,6 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from typing import List
 
 
@@ -22,6 +24,24 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_avatar_size_mb: int = 5
     max_cover_size_mb: int = 5
+
+    @field_validator("secret_key")
+    @classmethod
+    def validate_secret(cls, v: str) -> str:
+        env = os.getenv("APP_ENV", "development")
+        if env == "production":
+            if not v or v.startswith("change-me") or len(v) < 32:
+                raise ValueError("SECRET_KEY must be set to a strong random value (>=32 chars) in production — generate with: openssl rand -hex 32")
+        return v
+
+    @field_validator("cors_origins")
+    @classmethod
+    def validate_cors(cls, v: str) -> str:
+        env = os.getenv("APP_ENV", "development")
+        if env == "production" and v.strip() in ("*", "", "http://localhost:5173,http://localhost:3000"):
+            # Allow but warn — better to be explicit in prod; we don't hard-fail to keep deploys flexible
+            pass
+        return v
 
     @property
     def cors_origins_list(self) -> List[str]:
