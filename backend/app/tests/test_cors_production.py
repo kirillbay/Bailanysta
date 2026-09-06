@@ -17,10 +17,14 @@ def _client_with_cors(origins: str):
     os.environ["CORS_ORIGINS"] = origins
     os.environ["APP_ENV"] = "production"
     os.environ["SECRET_KEY"] = "test-secret-key-1234567890abcdef1234567890abcdef"
-    # Reload settings
+    # Reload settings and dependent modules
     import app.core.config
     importlib.reload(app.core.config)
     from app.core.config import settings
+    import app.core.security
+    importlib.reload(app.core.security)
+    import app.api.v1.auth
+    importlib.reload(app.api.v1.auth)
     # Need to reload main to pick up new settings
     import app.main
     importlib.reload(app.main)
@@ -77,6 +81,10 @@ def test_cors_production_origin():
             os.environ.pop("SECRET_KEY", None)
         import app.core.config
         importlib.reload(app.core.config)
+        import app.core.security
+        importlib.reload(app.core.security)
+        import app.api.v1.auth
+        importlib.reload(app.api.v1.auth)
         import app.main
         importlib.reload(app.main)
 
@@ -119,6 +127,10 @@ def test_cors_with_trailing_slash_and_quotes():
         os.environ.pop("SECRET_KEY", None)
     import app.core.config
     importlib.reload(app.core.config)
+    import app.core.security
+    importlib.reload(app.core.security)
+    import app.api.v1.auth
+    importlib.reload(app.api.v1.auth)
     import app.main
     importlib.reload(app.main)
 
@@ -154,5 +166,75 @@ def test_cors_rejects_unknown_origin():
             os.environ.pop("SECRET_KEY", None)
         import app.core.config
         importlib.reload(app.core.config)
+        import app.core.security
+        importlib.reload(app.core.security)
+        import app.api.v1.auth
+        importlib.reload(app.api.v1.auth)
+        import app.main
+        importlib.reload(app.main)
+
+def test_cross_site_auth_cookie_flow():
+    # Production cross-site: frontend https://bailanysta-front.onrender.com, backend https://bailanysta-back.onrender.com are cross-site (onrender.com is public suffix)
+    # Cookie must be SameSite=None; Secure to be sent with credentials: include
+    orig_cors = os.environ.get("CORS_ORIGINS")
+    orig_env = os.environ.get("APP_ENV")
+    orig_secret = os.environ.get("SECRET_KEY")
+    os.environ["CORS_ORIGINS"] = "https://bailanysta-front.onrender.com"
+    os.environ["APP_ENV"] = "production"
+    os.environ["SECRET_KEY"] = "test-secret-key-1234567890abcdef1234567890abcdef"
+    import app.core.config
+    importlib.reload(app.core.config)
+    import app.core.security
+    importlib.reload(app.core.security)
+    import app.api.v1.auth
+    importlib.reload(app.api.v1.auth)
+    import app.main
+    importlib.reload(app.main)
+    from app.main import app as fastapi_app
+    from app.database.session import get_db
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(bind=engine)
+    def override():
+        S = sessionmaker(bind=engine)
+        s = S()
+        try:
+            yield s
+        finally:
+            s.close()
+    fastapi_app.dependency_overrides[get_db] = override
+    # Use https base_url for Secure cookies
+    client = TestClient(fastapi_app, base_url="https://testserver")
+    try:
+        r = client.post("/api/v1/auth/demo", headers={"Origin": "https://bailanysta-front.onrender.com"})
+        assert r.status_code == 200
+        cookie = r.headers.get("set-cookie", "")
+        assert "SameSite=none" in cookie or "SameSite=None" in cookie or "samesite=none" in cookie.lower(), f"Expected SameSite=None, got {cookie}"
+        assert "Secure" in cookie, f"Expected Secure, got {cookie}"
+        assert "HttpOnly" in cookie
+        # Subsequent GET /me with same cross-site Origin should succeed (cookie sent)
+        r2 = client.get("/api/v1/auth/me", headers={"Origin": "https://bailanysta-front.onrender.com"})
+        assert r2.status_code == 200, f"Expected 200 for /me cross-site, got {r2.status_code} {r2.text}"
+        assert r2.json()["username"] == "demo"
+    finally:
+        fastapi_app.dependency_overrides.clear()
+        engine.dispose()
+        if orig_cors is not None:
+            os.environ["CORS_ORIGINS"] = orig_cors
+        else:
+            os.environ.pop("CORS_ORIGINS", None)
+        if orig_env is not None:
+            os.environ["APP_ENV"] = orig_env
+        else:
+            os.environ.pop("APP_ENV", None)
+        if orig_secret is not None:
+            os.environ["SECRET_KEY"] = orig_secret
+        else:
+            os.environ.pop("SECRET_KEY", None)
+        import app.core.config
+        importlib.reload(app.core.config)
+        import app.core.security
+        importlib.reload(app.core.security)
+        import app.api.v1.auth
+        importlib.reload(app.api.v1.auth)
         import app.main
         importlib.reload(app.main)

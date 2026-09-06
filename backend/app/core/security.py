@@ -54,16 +54,21 @@ def set_auth_cookie(response, token: str):
     """Set HttpOnly cookie with correct attributes per environment."""
     # Max age in seconds
     max_age = settings.access_token_expire_minutes * 60
+    # For cross-origin production (frontend onrender.com, backend onrender.com are cross-site
+    # because onrender.com is a public suffix), SameSite=Lax would block the cookie on
+    # subsequent fetch with credentials: include. Use SameSite=None in production.
+    samesite = "none" if settings.is_production else "lax"
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=settings.is_production,  # Secure only in production (HTTPS)
-        samesite="lax",  # Lax balances CSRF and usability; strict would break some flows
+        secure=settings.is_production,  # Secure required for SameSite=None (HTTPS)
+        samesite=samesite,
         path="/",
         max_age=max_age,
     )
 
 
 def clear_auth_cookie(response):
-    response.delete_cookie(key=COOKIE_NAME, path="/")
+    samesite = "none" if settings.is_production else "lax"
+    response.delete_cookie(key=COOKIE_NAME, path="/", secure=settings.is_production, samesite=samesite, httponly=True)
