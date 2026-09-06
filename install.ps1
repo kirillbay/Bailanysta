@@ -1,324 +1,191 @@
-# Bailanysta — Production Installer (PowerShell)
-# MVP: No new features, no secrets in Git, safe for existing data
-# Requires: Windows 10/11, Docker Desktop + WSL2, Git (optional)
+﻿# Bailanysta - One-Click Installer (Windows)
+# Supports: Quick Start (SQLite, no Docker) for reviewers + Production (Docker) for advanced
 # Location: C:\Users\lueex\Desktop\Bailanysta\install.ps1
 
-param(
-    [switch]$NonInteractive
-)
+param([switch]$NonInteractive, [switch]$Production)
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
-if (-not $ProjectRoot -or $ProjectRoot -eq "") { $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path }
+if (-not $ProjectRoot) { $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path }
 Set-Location -LiteralPath $ProjectRoot
 
-function Write-Info($msg) { Write-Host "[INFO] $msg" -ForegroundColor Cyan }
-function Write-Ok($msg) { Write-Host "[OK] $msg" -ForegroundColor Green }
-function Write-Warn($msg) { Write-Host "[WARN] $msg" -ForegroundColor Yellow }
-function Write-Err($msg) { Write-Host "[ERR] $msg" -ForegroundColor Red }
-
-function Test-Command($name) {
-    return [bool](Get-Command $name -ErrorAction SilentlyContinue)
-}
+function Write-Info($m){ Write-Host "[INFO] $m" -ForegroundColor Cyan }
+function Write-Ok($m){ Write-Host "[OK] $m" -ForegroundColor Green }
+function Write-Warn($m){ Write-Host "[WARN] $m" -ForegroundColor Yellow }
+function Write-Err($m){ Write-Host "[ERR] $m" -ForegroundColor Red }
+function Test-Cmd($n){ return [bool](Get-Command $n -ErrorAction SilentlyContinue) }
 
 Write-Host "========================================" -ForegroundColor White
-Write-Host " Bailanysta — Production Installer" -ForegroundColor White
+Write-Host " Bailanysta - One-Click Installer" -ForegroundColor White
 Write-Host " Project: $ProjectRoot" -ForegroundColor Gray
 Write-Host "========================================" -ForegroundColor White
 Write-Host ""
 
-# 1. Windows check
-Write-Info "1/13 Проверка Windows..."
-if ($env:OS -notlike "*Windows*") {
-    Write-Err "Этот установщик предназначен для Windows. Обнаружено: $env:OS"
-    exit 1
-}
-Write-Ok "Windows: $env:OS (Build $([Environment]::OSVersion.Version))"
-
-# 2. Docker Desktop check
-Write-Info "2/13 Проверка Docker Desktop..."
-if (-not (Test-Command "docker")) {
-    Write-Warn "Docker не найден в PATH."
-    Write-Host ""
-    Write-Host "Официальная установка:" -ForegroundColor White
-    Write-Host "  1) Скачай Docker Desktop с официального сайта:" -ForegroundColor Gray
-    Write-Host "     https://www.docker.com/products/docker-desktop/" -ForegroundColor Cyan
-    Write-Host "     Документация: https://docs.docker.com/desktop/setup/install/windows-install/" -ForegroundColor Cyan
-    Write-Host "  2) Требования: Windows 10/11 64-bit, WSL2, виртуализация включена в BIOS" -ForegroundColor Gray
-    Write-Host "  3) Альтернативно через winget (требует подтверждения):" -ForegroundColor Gray
-    Write-Host "     winget install -e --id Docker.DockerDesktop" -ForegroundColor White
-    Write-Host ""
-    Write-Host "  WSL2 (если нужен): https://learn.microsoft.com/en-us/windows/wsl/install" -ForegroundColor Cyan
-    Write-Host "     wsl --install  (требует перезагрузку)" -ForegroundColor White
-    Write-Host ""
-    Write-Warn "После установки Docker Desktop перезапусти PowerShell и запусти install.bat снова."
-    Write-Warn "Установка остановлена — Docker обязателен для Bailanysta production."
-    exit 1
-}
-try { $dockerVer = docker --version 2>&1 } catch { $dockerVer = "unknown" }
-Write-Ok "Docker: $dockerVer"
-
-# 3. Docker Compose check
-Write-Info "3/13 Проверка Docker Compose..."
-$composeOk = $false
-try {
-    $c1 = docker compose version 2>&1
-    if ($LASTEXITCODE -eq 0) { $composeOk = $true; Write-Ok "Docker Compose: $c1" }
-} catch {}
-if (-not $composeOk) {
-    try {
-        $c2 = docker-compose --version 2>&1
-        if ($LASTEXITCODE -eq 0) { $composeOk = $true; Write-Ok "Docker Compose (standalone): $c2" }
-    } catch {}
-}
-if (-not $composeOk) {
-    Write-Err "Docker Compose не найден. Установи Docker Desktop (включает Compose v2)."
-    exit 1
+# Detect mode
+$hasNode = Test-Cmd "node"
+$hasPython = (Test-Cmd "python") -or (Test-Cmd "python3")
+$hasDocker = Test-Cmd "docker"
+$hasCompose = $false
+if ($hasDocker) {
+    try { docker compose version 1>$null 2>&1; if ($LASTEXITCODE -eq 0) { $hasCompose = $true } } catch {}
 }
 
-# 4. Docker daemon
-Write-Info "4/13 Проверка Docker daemon..."
-try {
-    docker info 1>$null 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "daemon not running" }
-    Write-Ok "Docker daemon запущен"
-} catch {
-    Write-Err "Docker daemon не запущен. Открой Docker Desktop и дождись статуса Running."
-    Write-Host "  Подсказка: запусти Docker Desktop из меню Пуск, дождись 30-60 сек." -ForegroundColor Gray
-    exit 1
-}
+Write-Info "Environment:"
+Write-Host "  Node:    $(if ($hasNode) { (node --version 2>&1) } else { 'NOT FOUND' })" -ForegroundColor Gray
+Write-Host "  Python:  $(if ($hasPython) { try { (python --version 2>&1) } catch { (python3 --version 2>&1) } } else { 'NOT FOUND' })" -ForegroundColor Gray
+Write-Host "  Docker:  $(if ($hasDocker) { try { (docker --version 2>&1) } catch { 'unknown' } } else { 'NOT FOUND' })" -ForegroundColor Gray
+Write-Host "  Compose: $(if ($hasCompose) { 'YES' } else { 'NO' })" -ForegroundColor Gray
+Write-Host ""
 
-# 5. WSL2 info (не критично, но полезно)
-Write-Info "5/13 Проверка WSL2..."
-try {
-    $wslOut = wsl --status 2>&1 | Out-String
-    Write-Host $wslOut -ForegroundColor Gray
-} catch {
-    Write-Warn "WSL статус не удалось получить (не критично, но Docker Desktop требует WSL2). См. https://learn.microsoft.com/en-us/windows/wsl/install"
-}
-
-# 6. Структура Bailanysta
-Write-Info "6/13 Проверка структуры Bailanysta..."
-$required = @("docker-compose.prod.yml", "backend", "frontend")
-foreach ($p in $required) {
-    if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot $p))) {
-        Write-Err "Не найден обязательный путь: $p (ожидается в $ProjectRoot)"
+# Choose mode
+$mode = "quick"
+if ($Production -and $hasDocker -and $hasCompose) {
+    $mode = "production"
+} elseif (-not $hasNode -or -not $hasPython) {
+    if ($hasDocker -and $hasCompose) {
+        $mode = "production"
+        Write-Warn "Node/Python not found, but Docker exists - switching to Production."
+    } else {
+        Write-Err "Node.js and Python not found, and no Docker."
+        Write-Host "For Quick Start install:" -ForegroundColor White
+        Write-Host "  Node.js 20+ : https://nodejs.org/" -ForegroundColor Cyan
+        Write-Host "  Python 3.12+: https://www.python.org/downloads/" -ForegroundColor Cyan
+        Write-Host "Or Docker Desktop: https://www.docker.com/products/docker-desktop/" -ForegroundColor Cyan
         exit 1
     }
+} else {
+    if ($hasDocker -and $hasCompose -and -not $NonInteractive) {
+        Write-Host "Found Node, Python and Docker. Choose mode:" -ForegroundColor White
+        Write-Host "  [1] Quick Start (SQLite, no Docker) - for reviewer, 1 click" -ForegroundColor Green
+        Write-Host "  [2] Production (Docker: postgres+backend+frontend)" -ForegroundColor Gray
+        $choice = Read-Host "Enter 1 or 2 (default 1)"
+        if ($choice -eq "2") { $mode = "production" } else { $mode = "quick" }
+    } elseif ($hasDocker -and $hasCompose) {
+        $mode = "quick"
+    }
 }
-Write-Ok "Структура: docker-compose.prod.yml, backend/, frontend/ — найдены"
 
-# 7. docker-compose.prod.yml exists already checked, validate config
-Write-Info "7/13 Проверка docker-compose.prod.yml..."
-if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot "docker-compose.prod.yml"))) {
-    Write-Err "docker-compose.prod.yml не найден"
-    exit 1
+Write-Host ""
+Write-Info "Selected mode: $mode"
+Write-Host ""
+
+if ($mode -eq "production") {
+    Write-Host "=== Production (Docker) ===" -ForegroundColor White
+    if (-not $hasDocker) { Write-Err "Docker not found"; exit 1 }
+    try { docker info 1>$null 2>&1; if ($LASTEXITCODE -ne 0) { throw } ; Write-Ok "Docker daemon running" } catch {
+        Write-Err "Docker daemon not running. Open Docker Desktop and wait for Running."; exit 1
+    }
+    if (-not (Test-Path "docker-compose.prod.yml")) { Write-Err "docker-compose.prod.yml not found"; exit 1 }
+    $envPath = Join-Path $ProjectRoot ".env"
+    $envExample = Join-Path $ProjectRoot ".env.example"
+    if (-not (Test-Path $envPath)) {
+        if (Test-Path $envExample) { Copy-Item $envExample $envPath; Write-Ok ".env created from .env.example" }
+    } else { Write-Ok ".env already exists" }
+    $envContent = Get-Content $envPath -Raw -ErrorAction SilentlyContinue
+    if ($envContent -match "SECRET_KEY=change-me" -or $envContent -notmatch "SECRET_KEY=") {
+        Write-Warn "Generating SECRET_KEY..."
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create(); $b = New-Object byte[] 32; $rng.GetBytes($b); $s = -join ($b | ForEach-Object { $_.ToString("x2") })
+        (Get-Content $envPath) -replace "^SECRET_KEY=.*", "SECRET_KEY=$s" | Set-Content $envPath -Encoding UTF8
+        Write-Ok "SECRET_KEY generated"
+    }
+    Write-Info "Validating compose..."
+    docker compose -f docker-compose.prod.yml config 1>$null; if ($LASTEXITCODE -ne 0) { Write-Err "config failed"; exit 1 }
+    Write-Info "Build..."
+    docker compose -f docker-compose.prod.yml build; if ($LASTEXITCODE -ne 0) { exit 1 }
+    Write-Info "Up..."
+    docker compose -f docker-compose.prod.yml up -d; if ($LASTEXITCODE -ne 0) { exit 1 }
+    Start-Sleep -Seconds 15
+    docker compose -f docker-compose.prod.yml ps
+    docker compose -f docker-compose.prod.yml logs --tail=100
+    Write-Host "Frontend: http://localhost  Backend: http://localhost:8000/health" -ForegroundColor White
+    try { Start-Process "http://localhost" } catch {}
+    Write-Ok "Production started!"
+    exit 0
 }
-Write-Ok "docker-compose.prod.yml найден"
 
-# 8. .env handling — не перезаписывать без подтверждения
-Write-Info "8/13 Проверка .env..."
+# --- QUICK START (SQLite, no Docker) ---
+Write-Host "=== Quick Start (SQLite, no Docker) ===" -ForegroundColor White
+
+if (-not $hasNode) { Write-Err "Node.js not found: https://nodejs.org/"; exit 1 }
+if (-not $hasPython) { Write-Err "Python not found: https://www.python.org/downloads/"; exit 1 }
+Write-Ok "Node and Python found"
+
+foreach ($p in @("backend", "frontend", ".env.example")) {
+    if (-not (Test-Path $p)) { Write-Err "Not found $p"; exit 1 }
+}
+
 $envPath = Join-Path $ProjectRoot ".env"
 $envExample = Join-Path $ProjectRoot ".env.example"
-if (-not (Test-Path -LiteralPath $envPath)) {
-    if (Test-Path -LiteralPath $envExample) {
-        Copy-Item -LiteralPath $envExample -Destination $envPath
-        Write-Ok ".env создан из .env.example — заполни значения"
-    } else {
-        New-Item -ItemType File -Path $envPath -Force | Out-Null
-        Write-Warn ".env.example не найден, создан пустой .env"
-    }
+if (-not (Test-Path $envPath)) {
+    Copy-Item $envExample $envPath
+    Write-Ok ".env created"
+    $c = Get-Content $envPath -Raw
+    $c = $c -replace "DATABASE_URL=.*", "DATABASE_URL=sqlite:///./dev_bailanysta.db"
+    Set-Content $envPath $c -Encoding UTF8
 } else {
-    Write-Ok ".env уже существует — не перезаписывается (безопасность)"
-    Write-Host "  Проверь вручную: $envPath" -ForegroundColor Gray
+    Write-Ok ".env already exists - not overwriting"
+}
+$envContent = Get-Content $envPath -Raw
+if ($envContent -match "SECRET_KEY=change-me") {
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create(); $b = New-Object byte[] 32; $rng.GetBytes($b); $s = -join ($b | ForEach-Object { $_.ToString("x2") })
+    (Get-Content $envPath) -replace "SECRET_KEY=change-me.*", "SECRET_KEY=$s" | Set-Content $envPath -Encoding UTF8
+    Write-Ok "SECRET_KEY generated"
 }
 
-# 9. SECRET_KEY generation (криптографически безопасно)
-Write-Info "9/13 Проверка SECRET_KEY..."
-$needSecret = $false
-if (Test-Path -LiteralPath $envPath) {
-    $envContent = Get-Content -LiteralPath $envPath -Raw -ErrorAction SilentlyContinue
-    if (-not $envContent) { $envContent = "" }
-    if ($envContent -match "SECRET_KEY=change-me" -or $envContent -match "SECRET_KEY=\s*$" -or $envContent -notmatch "SECRET_KEY=") {
-        $needSecret = $true
-    }
-}
-if ($needSecret) {
-    Write-Warn "SECRET_KEY не задан или placeholder — генерирую..."
-    $newSecret = $null
-    # Try Python secrets
-    if (Test-Command "python") {
-        try { $newSecret = python -c "import secrets; print(secrets.token_hex(32))" 2>$null } catch {}
-    }
-    if (-not $newSecret -and (Test-Command "python3")) {
-        try { $newSecret = python3 -c "import secrets; print(secrets.token_hex(32))" 2>$null } catch {}
-    }
-    if (-not $newSecret) {
-        # PowerShell fallback: 32 bytes hex
-        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-        $bytes = New-Object byte[] 32
-        $rng.GetBytes($bytes)
-        $newSecret = -join ($bytes | ForEach-Object { $_.ToString("x2") })
-    }
-    $newSecret = $newSecret.Trim()
-    if ($newSecret.Length -lt 32) { Write-Err "Не удалось сгенерировать SECRET_KEY"; exit 1 }
+Write-Info "Creating SQLite DB..."
+$env:DATABASE_URL="sqlite:///./dev_bailanysta.db"
+$env:SECRET_KEY="dev-secret-key-not-for-production-32chars-1234567890ab"
+Set-Location "$ProjectRoot\backend"
+# Use temp python file in backend folder to ensure app import works
+$pyFile = Join-Path "$ProjectRoot\backend" "bailanysta_init_db.py"
+Set-Content -LiteralPath $pyFile -Value "from app.database.base import Base`nimport app.models`nfrom sqlalchemy import create_engine`ne=create_engine('sqlite:///./dev_bailanysta.db')`nBase.metadata.create_all(bind=e)`nprint('DB ready')" -Encoding UTF8
+python $pyFile
+if ($LASTEXITCODE -ne 0) { Write-Err "DB creation failed"; exit 1 }
+Write-Ok "SQLite DB ready: backend/dev_bailanysta.db"
+Remove-Item $pyFile -Force -ErrorAction SilentlyContinue
 
-    # Update .env safely — replace line
-    $lines = @()
-    $found = $false
-    if (Test-Path -LiteralPath $envPath) {
-        $lines = Get-Content -LiteralPath $envPath
-    }
-    $out = @()
-    foreach ($line in $lines) {
-        if ($line -match "^SECRET_KEY=") {
-            $out += "SECRET_KEY=$newSecret"
-            $found = $true
-        } else {
-            $out += $line
-        }
-    }
-    if (-not $found) { $out += "SECRET_KEY=$newSecret" }
-    # Ensure APP_ENV=production for prod
-    $hasAppEnv = $false
-    for ($i=0; $i -lt $out.Count; $i++) {
-        if ($out[$i] -match "^APP_ENV=") { $out[$i] = "APP_ENV=production"; $hasAppEnv = $true }
-        if ($out[$i] -match "^DEBUG=") { $out[$i] = "DEBUG=false" }
-    }
-    if (-not $hasAppEnv) { $out += "APP_ENV=production"; $out += "DEBUG=false" }
-    Set-Content -LiteralPath $envPath -Value ($out -join "`n") -Encoding UTF8
-    Write-Ok "SECRET_KEY сгенерирован и записан в .env (production, `>=32` hex)"
-} else {
-    Write-Ok "SECRET_KEY уже задан — не трогаю"
+if (-not (Test-Path "C:\Users\lueex\Desktop\Bailanysta\backend\.venv" -ErrorAction SilentlyContinue)) {
+    Write-Info "Installing backend deps (pip)..."
+    python -m pip install -r requirements.txt --quiet
+    if ($LASTEXITCODE -ne 0) { Write-Warn "pip install warnings, continuing" }
 }
 
-# Validate required env vars for production
-Write-Info "Проверка обязательных переменных..."
-$envMap = @{}
-if (Test-Path -LiteralPath $envPath) {
-    Get-Content -LiteralPath $envPath | ForEach-Object {
-        if ($_ -match "^\s*#" -or $_ -notmatch "=") { return }
-        $kv = $_ -split "=",2
-        if ($kv.Count -eq 2) { $envMap[$kv[0].Trim()] = $kv[1].Trim() }
-    }
-}
-$requiredVars = @("DATABASE_URL", "SECRET_KEY", "CORS_ORIGINS", "VITE_API_URL")
-$missing = @()
-foreach ($k in $requiredVars) {
-    $v = $envMap[$k]
-    if (-not $v -or $v -eq "" -or $v -like "*change-me*") {
-        # Also check OS env
-        $osVal = [Environment]::GetEnvironmentVariable($k)
-        if (-not $osVal) { $missing += $k }
-    }
-}
-if ($missing.Count -gt 0) {
-    Write-Warn ("Не заданы обязательные переменные: " + ($missing -join ", "))
-    Write-Host "  Заполни .env вручную. Пример:" -ForegroundColor Gray
-    Write-Host "    DATABASE_URL=postgresql+psycopg://bailanysta:STRONGPASS@postgres:5432/bailanysta" -ForegroundColor White
-    Write-Host "    CORS_ORIGINS=https://bailanysta.example.com" -ForegroundColor White
-    Write-Host "    VITE_API_URL=https://api.bailanysta.example.com" -ForegroundColor White
-    if (-not $NonInteractive) {
-        $ans = Read-Host "Продолжить без этих переменных? (y/N)"
-        if ($ans -ne "y" -and $ans -ne "Y") { Write-Err "Установка прервана — заполни .env и запусти снова."; exit 1 }
-    }
-} else {
-    Write-Ok "Обязательные переменные присутствуют"
+Set-Location "$ProjectRoot\frontend"
+if (-not (Test-Path "node_modules")) {
+    Write-Info "Installing frontend deps (npm ci)..."
+    npm ci
+    if ($LASTEXITCODE -ne 0) { npm install }
 }
 
-# 10. Validate compose config
-Write-Info "10/13 Валидация docker-compose.prod.yml..."
-try {
-    docker compose -f docker-compose.prod.yml config 1>$null
-    if ($LASTEXITCODE -ne 0) { throw "config failed" }
-    Write-Ok "docker compose config — OK"
-} catch {
-    Write-Err "docker compose config — FAILED. Проверь docker-compose.prod.yml и .env"
-    docker compose -f docker-compose.prod.yml config
-    exit 1
-}
+Write-Info "Starting backend (uvicorn)..."
+Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | ForEach-Object { try { Stop-Process -Id $_.OwningProcess -Force } catch {} }
+Start-Sleep -Seconds 1
+$env:DATABASE_URL="sqlite:///./dev_bailanysta.db"
+$env:SECRET_KEY="dev-secret-key-not-for-production-32chars-1234567890ab"
+Start-Process -FilePath "cmd" -ArgumentList '/c', 'set DATABASE_URL=sqlite:///./dev_bailanysta.db && set SECRET_KEY=dev-secret-key-not-for-production-32chars-1234567890ab && python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --log-level info > uvicorn.log 2>&1' -WorkingDirectory "$ProjectRoot\backend" -WindowStyle Hidden
+Start-Sleep -Seconds 5
+try { $r = Invoke-WebRequest -Uri "http://127.0.0.1:8000/health" -UseBasicParsing -TimeoutSec 5; Write-Ok "Backend health $($r.StatusCode) $($r.Content)" } catch { Write-Warn "Backend health not yet, waiting..."; Start-Sleep -Seconds 3 }
 
-# 11. Build
-Write-Info "11/13 Сборка images (может занять 2-5 мин)..."
-try {
-    docker compose -f docker-compose.prod.yml build
-    if ($LASTEXITCODE -ne 0) { throw "build failed" }
-    Write-Ok "Build — OK"
-} catch {
-    Write-Err "Build FAILED — см. лог выше"
-    exit 1
-}
-
-# 12. Up
-Write-Info "12/13 Запуск stack (up -d)..."
-try {
-    docker compose -f docker-compose.prod.yml up -d
-    if ($LASTEXITCODE -ne 0) { throw "up failed" }
-    Write-Ok "Containers started"
-} catch {
-    Write-Err "up -d FAILED"
-    docker compose -f docker-compose.prod.yml logs --tail=100
-    exit 1
-}
-
-# 13. Healthchecks
-Write-Info "13/13 Проверка healthchecks (ожидание 30с)..."
-Start-Sleep -Seconds 15
-# Retry loop 30s
-$max = 6
-$ok = $false
-for ($i=1; $i -le $max; $i++) {
-    try {
-        $ps = docker compose -f docker-compose.prod.yml ps --format json 2>&1
-        Write-Host $ps -ForegroundColor Gray
-    } catch {}
-    # Check health via logs
-    try {
-        $health = docker inspect --format="{{if .State.Health}}{{json .State.Health.Status}}{{end}}" bailanysta-backend 2>&1
-        if ($health -match "healthy") { $ok = $true; break }
-    } catch {}
-    Start-Sleep -Seconds 5
-}
-docker compose -f docker-compose.prod.yml ps
-Write-Host ""
-docker compose -f docker-compose.prod.yml logs --tail=100
-
-# Try backend health endpoints
-Write-Info "Проверка backend health endpoints..."
-$apiUrl = $envMap["VITE_API_URL"]
-if (-not $apiUrl) { $apiUrl = "http://localhost:8000" }
-# Try localhost:8000 directly (backend port)
-$healthUrls = @("http://localhost:8000/health", "http://localhost:8000/api/v1/health", "http://localhost:8000/api/v1/health/db")
-foreach ($u in $healthUrls) {
-    try {
-        $r = Invoke-WebRequest -Uri $u -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
-        if ($r.StatusCode -eq 200) { Write-Ok "Health $u — 200" } else { Write-Warn "Health $u — $($r.StatusCode)" }
-    } catch {
-        Write-Warn "Health $u — not reachable (maybe behind proxy, check docker logs)"
-    }
-}
+Write-Info "Starting frontend (vite)..."
+Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue | ForEach-Object { try { Stop-Process -Id $_.OwningProcess -Force } catch {} }
+Start-Sleep -Seconds 1
+Start-Process -FilePath "cmd" -ArgumentList '/c', 'npm run dev -- --host 0.0.0.0 --port 5173 > frontend.log 2>&1' -WorkingDirectory "$ProjectRoot\frontend" -WindowStyle Hidden
+Start-Sleep -Seconds 8
+try { $r = Invoke-WebRequest -Uri "http://127.0.0.1:5173" -UseBasicParsing -TimeoutSec 5; Write-Ok "Frontend $($r.StatusCode) len $($r.Content.Length)" } catch { Write-Warn "Frontend not yet" }
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
-Write-Host " Bailanysta — Установка завершена!" -ForegroundColor Green
+Write-Host " Bailanysta started (Quick Start)!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
-Write-Host " Frontend: http://localhost (nginx)" -ForegroundColor White
-if ($apiUrl) { Write-Host " Backend:  $apiUrl" -ForegroundColor White }
-Write-Host " Health:   http://localhost:8000/health" -ForegroundColor White
+Write-Host " Frontend: http://localhost:5173" -ForegroundColor White
+Write-Host " Backend:  http://localhost:8000" -ForegroundColor White
 Write-Host " Docs:     http://localhost:8000/docs" -ForegroundColor White
+Write-Host " Health:   http://localhost:8000/health" -ForegroundColor White
 Write-Host ""
-Write-Host "Команды:" -ForegroundColor Gray
-Write-Host "  Логи:      docker compose -f docker-compose.prod.yml logs -f" -ForegroundColor White
-Write-Host "  Остановить: docker compose -f docker-compose.prod.yml down    (данные сохранятся)" -ForegroundColor White
-Write-Host "  Обновить:   .\update.bat  (или .\update.ps1)" -ForegroundColor White
-Write-Host "  Удалить:    .\uninstall.bat" -ForegroundColor White
+Write-Host " Try:" -ForegroundColor Gray
+Write-Host "  1. Click 'Enter demo' on /login" -ForegroundColor White
+Write-Host "  2. Or register: browser_test / test@example.com / Secret123!" -ForegroundColor White
 Write-Host ""
 
-# Try open browser
-try {
-    $frontendUrl = "http://localhost"
-    Write-Info "Попытка открыть $frontendUrl в браузере..."
-    Start-Process $frontendUrl -ErrorAction SilentlyContinue
-} catch {}
-
-Write-Ok "Готово. Если видишь контейнеры healthy — Bailanysta работает."
+try { Start-Process "http://localhost:5173" } catch {}
+Write-Ok "Done. If you see Bailanysta - it works."
