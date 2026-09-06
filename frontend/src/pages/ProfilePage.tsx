@@ -60,8 +60,7 @@ export function ProfilePage() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState<"avatar" | "cover" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [followOptimistic, setFollowOptimistic] = useState<boolean | null>(null);
-  const [followersCountOptimistic, setFollowersCountOptimistic] = useState<number | null>(null);
+  // Follow: source of truth is server data (data.is_following, data.followers_count) with optimistic cache update
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<EditValues>({
     resolver: zodResolver(editSchema),
@@ -83,32 +82,29 @@ export function ProfilePage() {
 
   const followMut = useMutation({
     mutationFn: () => {
-      const currently = followOptimistic ?? data?.is_following ?? false;
+      const currently = (data as any)?.is_following ?? false;
       return currently ? followsApi.unfollow(targetUsername) : followsApi.follow(targetUsername);
     },
-    onMutate: () => {
-      const currently = followOptimistic ?? data?.is_following ?? false;
-      const currentCount = followersCountOptimistic ?? data?.followers_count ?? 0;
-      setFollowOptimistic(!currently);
-      setFollowersCountOptimistic(currently ? currentCount - 1 : currentCount + 1);
-      // Optimistically update cache for instant feedback
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ["profile", targetUsername] });
+      const previous = qc.getQueryData<any>(["profile", targetUsername]);
+      const currently = (previous as any)?.is_following ?? (data as any)?.is_following ?? false;
+      const currentCount = (previous as any)?.followers_count ?? (data as any)?.followers_count ?? 0;
       qc.setQueryData(["profile", targetUsername], (old: any) => {
         if (!old) return old;
-        return { ...old, is_following: !currently, followers_count: currently ? (old.followers_count ?? 1) - 1 : (old.followers_count ?? 0) + 1 };
+        return { ...old, is_following: !currently, followers_count: currently ? currentCount - 1 : currentCount + 1 };
       });
+      return { previous };
     },
-    onError: () => {
-      setFollowOptimistic(null);
-      setFollowersCountOptimistic(null);
-      qc.invalidateQueries({ queryKey: ["profile", targetUsername] });
+    onError: (_err, _vars, context: any) => {
+      if (context?.previous) {
+        qc.setQueryData(["profile", targetUsername], context.previous);
+      } else {
+        qc.invalidateQueries({ queryKey: ["profile", targetUsername] });
+      }
     },
-    onSuccess: () => {
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["profile", targetUsername] });
-      // Clear optimistic after server confirms — let refetched data take over
-      setTimeout(() => {
-        setFollowOptimistic(null);
-        setFollowersCountOptimistic(null);
-      }, 500);
     },
   });
 
@@ -159,9 +155,9 @@ export function ProfilePage() {
   }
 
   const coverUrl = usersApi.resolveUrl((data as any).cover_url);
-  const isFollowing = followOptimistic ?? (data as any).is_following ?? false;
-  const followersCount = followersCountOptimistic ?? (data as any).followers_count ?? 0;
-  const followingCount = (data as any).following_count ?? 0;
+  const isFollowing = (data as any)?.is_following ?? false;
+  const followersCount = (data as any)?.followers_count ?? 0;
+  const followingCount = (data as any)?.following_count ?? 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
