@@ -123,7 +123,9 @@ Docker, Nginx, Docker Compose, `docker-compose.prod.yml` (prod), `docker-compose
 
 ## Установка — Quick Start (Windows, без Docker)
 
-**Самый простой способ для проверяющего (SQLite, без Docker/WSL):**
+> **Важно:** проект сдаётся через **PUBLIC GitHub repository** (`git remote` → GitHub). Скачать ZIP с GitHub (`Code → Download ZIP`) — только как способ локальной проверки, не как способ сдачи.
+
+**Самый простой способ для проверяющего (SQLite, без Docker):**
 
 ```powershell
 # 1. Требования: Node.js 20+ и Python 3.12+ (проверяет install.bat)
