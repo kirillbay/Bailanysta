@@ -2386,4 +2386,23 @@ PASS WITH LIMITATIONS — все P0/P1 flows работают, P2/P3 тольк�
 
 ---
 
+
+## FIX — Demo Avatar + Search/Messages Polish + Profile Avatar (2026-09-05)
+
+### Fixed
+
+- **Explore/Search дубль:** удалён `nav.explore` из `AppShell`, `/explore` теперь `Navigate to="/search" replace` — один раздел поиска.
+- **Profile Avatar:** `cover h-40 → h-44`, avatar `h-24 w-24 -mt-14 → -mt-16 z-10`, outer `overflow-hidden` → `rounded-t` на cover — аватар полностью ниже cover, не клипается.
+- **Demo Avatar:** скопирован `C:\Users\lueex\Desktop\Gemini_Generated_Image_ld4tnrld4tnrld4t.jpg` (503KB) → `frontend/public/bailanysta-demo-avatar.jpg` + `backend/uploads/avatars/bailanysta-demo-avatar.jpg`, `auth.py` demo user теперь `avatar_url=/uploads/avatars/bailanysta-demo-avatar.jpg` + `display_name=Bailanysta Demo`.
+
+### Verified
+
+- `GET /uploads/avatars/bailanysta-demo-avatar.jpg` 200 `image/jpeg` 503KB
+- `GET /bailanysta-demo-avatar.jpg` via Vite 200
+- `POST /api/v1/auth/demo` → `avatar_url` correct
+- `GET /api/v1/search?q=demo&type=clubs` → Demo Club
+- `pytest 283` `tsc` `build` 474kB
+
+---
+
 <!-- Шаблон для следующего STEP

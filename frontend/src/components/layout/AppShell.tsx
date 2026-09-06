@@ -2,7 +2,6 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Home,
-  Compass,
   Search,
   UsersRound,
   FolderKanban,
@@ -24,7 +23,6 @@ import { useNotificationsRealtime } from "@/hooks/useRealtime";
 
 const navItems = [
   { to: "/", icon: Home, key: "nav.feed" },
-  { to: "/explore", icon: Compass, key: "nav.explore" },
   { to: "/search", icon: Search, key: "nav.search" },
   { to: "/clubs", icon: UsersRound, key: "nav.clubs" },
   { to: "/projects", icon: FolderKanban, key: "nav.projects" },

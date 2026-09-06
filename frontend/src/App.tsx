@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -38,7 +38,7 @@ const router = createBrowserRouter([
     errorElement: <NotFoundPage />,
     children: [
       { path: "/", element: <Suspense fallback={<Fallback />}><FeedPage /></Suspense> },
-      { path: "/explore", element: <Suspense fallback={<Fallback />}><SearchPage /></Suspense> },
+      { path: "/explore", element: <Navigate to="/search" replace /> },
       { path: "/search", element: <Suspense fallback={<Fallback />}><SearchPage /></Suspense> },
       { path: "/hashtags/:name", element: <Suspense fallback={<Fallback />}><HashtagPage /></Suspense> },
       { path: "/clubs", element: <Suspense fallback={<Fallback />}><ClubsPage /></Suspense> },

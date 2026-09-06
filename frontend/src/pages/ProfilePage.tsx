@@ -146,16 +146,16 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div className="overflow-hidden rounded-[24px] border bg-card">
-        <div className="h-40 w-full bg-gradient-to-br from-violet-500 via-indigo-500 to-sky-500 relative">
+      <div className="rounded-[24px] border bg-card">
+        <div className="h-44 w-full bg-gradient-to-br from-violet-500 via-indigo-500 to-sky-500 relative rounded-t-[24px] overflow-hidden">
           {coverUrl && <img src={coverUrl} alt="cover" className="h-full w-full object-cover" />}
           {coverPreview && <img src={coverPreview} alt="preview" className="h-full w-full object-cover opacity-60" />}
         </div>
         <div className="p-5">
           <div className="flex gap-4">
-            <div className="-mt-14">
+            <div className="-mt-16 relative z-10">
               {avatarPreview ? (
-                <img src={avatarPreview} alt="preview" className="h-24 w-24 rounded-2xl object-cover border-4 border-card shadow-sm" />
+                <img src={avatarPreview} alt="preview" className="h-24 w-24 rounded-2xl object-cover border-4 border-card shadow-sm bg-card" />
               ) : (
                 <Avatar url={(data as any).avatar_url} username={data.username} />
               )}

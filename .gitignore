@@ -36,6 +36,7 @@ htmlcov/
 *.sqlite
 *.sqlite3
 backend/uploads/
+!backend/uploads/avatars/bailanysta-demo-avatar.jpg
 uploads/
 
 # ── Node / Frontend ──

@@ -174,9 +174,10 @@ def demo_login(response: Response, db: Session = Depends(get_db)):
     demo_email = "demo@bailanysta.demo"
     demo_password = "Demo123!"
     user = db.query(User).filter(User.username == demo_username).first()
+    demo_avatar = "/uploads/avatars/bailanysta-demo-avatar.jpg"
     if not user:
-        # Create demo user
-        user = User(username=demo_username, email=demo_email, password_hash=hash_password(demo_password), display_name="Demo User", bio="Демонстрационный аккаунт Bailanysta — IT community showcase. Нажмите 'Войти в демо' чтобы посмотреть платформу без регистрации.")
+        # Create demo user — avatar is the provided Bailanysta brand image
+        user = User(username=demo_username, email=demo_email, password_hash=hash_password(demo_password), display_name="Bailanysta Demo", bio="Демонстрационный аккаунт Bailanysta — IT community showcase. Нажмите 'Войти в демо' чтобы посмотреть платформу без регистрации.", avatar_url=demo_avatar)
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -184,10 +185,20 @@ def demo_login(response: Response, db: Session = Depends(get_db)):
     else:
         # Ensure data exists even if user already there
         _ensure_demo_data(db, user)
-        # Ensure password is correct (in case changed)
+        # Ensure demo avatar and display name are set (brand image)
+        updated = False
+        if user.avatar_url != demo_avatar:
+            user.avatar_url = demo_avatar
+            updated = True
+        if user.display_name != "Bailanysta Demo":
+            user.display_name = "Bailanysta Demo"
+            updated = True
         if not verify_password(demo_password, user.password_hash):
             user.password_hash = hash_password(demo_password)
+            updated = True
+        if updated:
             db.commit()
+            db.refresh(user)
     token = create_access_token(user.id)
     set_auth_cookie(response, token)
     return user
