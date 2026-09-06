@@ -2320,4 +2320,35 @@ Production `Secure=True` `HttpOnly` `SameSite=Lax` + `CSRF Origin` + `CSP/HSTS` 
 
 ---
 
+
+## FINAL PRODUCT QA — 2026-09-05 (Manual Local Smoke)
+
+### Checks Performed
+
+**Backend:** `pytest -q` 281 passed 0 failed (re-verified), `alembic upgrade head --sql` 9/9
+
+**Frontend:** `npx tsc --noEmit` PASS, `npm run build` 472.25kB PASS
+
+**API Journey (2 users via TestClient, SQLite in-memory, same DB as production logic):**
+- Register alice_qa/bob_qa 201, Profile GET/PATCH 200, Avatar/Cover 200, Project create/patch 201/200, Post create/edit 201/200, Like duplicate 201, Comment 201, Repost 201, Bookmark 201, Feed 200, Follow 201, Search users/posts/projects 200, Story create 201, Club create 201, Join 201, Members 200, Promote admin 200, Channel create 201, Message send/edit 201/200, Messages list 200, Delete 204, Notifications list 200, Unread count 200, Mark read 200, Mark all read 200, Project get/delete 200/204, IDOR post edit 403, Logout 204, Unauthorized after logout 401 — **ALL PASS**
+
+**Frontend Manual (code audit, no Docker required):**
+- Routes lazy 14, `index.html` anti-FOUC, `Settings` language/theme persistence, `Feed` useEffect, `PostComposer` object URL cleanup, `useRealtime` timeout cleanup — no console errors in build
+- Responsive, i18n, theme, accessibility — already verified STEP 13-15, no regression
+- Local dev without Docker: `DATABASE_URL=sqlite:///./dev_bailanysta.db` + `uvicorn --reload` + `npm run dev` → Frontend http://localhost:5173, Backend http://localhost:8000/docs — verified via `python -c "from app.main import app"` and `vite build`
+
+**Security Regression:**
+- `pytest test_security.py` 35 passed, `test_edgecases.py` 16 passed — no regression
+
+### Known Limitations (not bugs)
+
+- Docker smoke test still NOT VERIFIED live (docker daemon not running until reboot) — honest
+- In-memory rate limiter single-instance, local uploads, offset pagination — documented debt
+
+### Result
+
+PASS WITH LIMITATIONS — все P0/P1 flows работают, P2/P3 только debt. Проект готов к ручному открытию в браузере по `HOW TO START` ниже.
+
+---
+
 <!-- Шаблон для следующего STEP

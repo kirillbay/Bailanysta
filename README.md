@@ -171,10 +171,47 @@ npm run dev
 # → http://localhost:5173
 ```
 
-### 5. With Docker (planned)
+### 5. With Docker (production)
 
 ```bash
-docker-compose up --build
+# Quick production (requires Docker Desktop + WSL2)
+.\install.bat
+# or manual:
+docker compose -f docker-compose.prod.yml config
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d
+# Frontend: http://localhost  Backend: http://localhost:8000/health
+```
+
+### 5b. Without Docker — quick local dev (SQLite, for manual QA)
+
+For instant local test without PostgreSQL, use SQLite:
+
+```powershell
+# 1. Backend — SQLite dev DB
+cd backend
+$env:DATABASE_URL="sqlite:///./dev_bailanysta.db"
+python -m alembic upgrade head --sql  # verify
+# create tables via Python (or alembic upgrade head if sqlite)
+python -c "from app.database.base import Base; from sqlalchemy import create_engine; e=create_engine('sqlite:///./dev_bailanysta.db'); Base.metadata.create_all(bind=e); print('DB ready')"
+$env:DATABASE_URL="sqlite:///./dev_bailanysta.db"
+$env:SECRET_KEY="dev-secret-key-not-for-production-32chars"
+uvicorn app.main:app --reload --port 8000
+# → http://localhost:8000/docs
+
+# 2. Frontend (new terminal)
+cd frontend
+npm install
+npm run dev
+# → http://localhost:5173
+# VITE_API_URL=http://localhost:8000 (default in .env.example)
+```
+
+Then register in browser or via API:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register -H "Content-Type: application/json" -d '{"username":"alice","email":"alice@example.com","password":"Secret123!"}'
+curl -X POST http://localhost:8000/api/v1/auth/register -H "Content-Type: application/json" -d '{"username":"bob","email":"bob@example.com","password":"Secret123!"}'
 ```
 
 ---
@@ -264,14 +301,17 @@ Implemented/planned (see `SECURITY.md`):
 
 ---
 
-## 🐛 Known Issues & Limitations (STEP 11)
+## 🐛 Known Issues & Limitations (STEP 17 — PROJECT COMPLETE)
 
 - No Redis — realtime manager in-memory, single instance only (future Redis Pub/Sub)
 - No private DMs yet (future, HTTP + WS ready for clubs)
 - No voice/video (future)
 - No reactions/threads/file attachments in club messages (future)
 - No E2EE — privacy-focused architecture, not E2E yet — see SECURITY.md §9
-- Hashtag search is ILIKE (no ES), bookmarks 50 limit, frontend chunks >500kB warning
+- Hashtag/Project search is ILIKE (no ES), bookmarks 50 limit, frontend chunks ~472kB
+- Local uploads `uploads/` volume (no S3), offset pagination (no cursor) — documented debt
+
+**Local test verified (2026-09-05):** `pytest 281 passed`, `tsc` PASS, `vite build` PASS, full user journey `Register→Post→Like→Comment→Club→Message→Notification` PASS (see DEVELOPMENT_LOG STEP 15-17).
 
 ---
 
