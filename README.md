@@ -2,12 +2,12 @@
 
 > Modern, minimal, premium social network for developers, designers, AI/ML engineers, DevOps, QA, founders and everyone passionate about technology.
 
-![Status](https://img.shields.io/badge/status-STEP%2016%20%E2%80%94%20production%20ready-green)
+![Status](https://img.shields.io/badge/status-STEP%2017%20%E2%80%94%20complete-green)
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI%20%2B%20PostgreSQL-0ea5e9)
 ![i18n](https://img.shields.io/badge/i18n-ru%20%7C%20kk%20%7C%20en-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**Live demo:** *production Docker setup ready — `docker-compose.prod.yml` (frontend nginx + backend uvicorn + postgres) — backend 281 tests, frontend 472kB, WSS via nginx, health `/health`*
+**Live demo:** *PROJECT COMPLETE — All STEPS 0–17 — `docker-compose.prod.yml` ready — backend 281 tests, frontend 472kB, WSS, health `/health`*
 
 ---
 

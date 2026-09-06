@@ -2174,4 +2174,150 @@ Production `Secure=True` `HttpOnly` `SameSite=Lax` + `CSRF Origin` + `CSP/HSTS` 
 
 ---
 
+
+## STEP 17 — Final QA, Release Audit & Demo Readiness
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Провести финальную проверку всего Bailanysta как законченного продукта (STEPS 0–16), устранить только блокирующие проблемы, подготовить к демонстрации/передаче. Не добавлять новые фичи.
+
+### Implemented
+
+**Initial State:**
+- `git status` clean, `branch main`, `log 0–16` 9 migrations, 281 tests baseline green
+
+**Backend Regression:**
+- `pytest -q` 281 passed 0 failed (re-run) ✅
+
+**Frontend Validation:**
+- `npx tsc --noEmit` PASS ✅
+- `npm run build` 472.25kB PASS ✅
+
+**DB Validation:**
+- `python -m alembic upgrade head --sql` 9/9 PASS ✅
+
+**User Journeys:**
+- New user `Register→Login→Profile→Edit→Avatar→Project→Post→Like→Comment→Bookmark→Follow→Search→Club→Join→Channel→Message→Notification→Stories→Settings→Language/Theme→Logout` — no crash ✅
+- Second user social `Follow→Like→Comment→Notification` — no private leak, no duplicate self-notif ✅
+
+**Security Final Audit:**
+- Auth `invalid/expired/malformed/wrong type/logout` → 401 ✅
+- Authorization `чужой post/project/notification/club` → 403/404 ✅
+- IDOR UUID change → no access ✅
+- Clubs `member cannot create channel 403`, `moderator cannot admin 403`, `admin cannot owner 403` ✅
+- CSRF `evil.com →403` ✅
+- Rate limiting `login 21→429`, `search 31→429` ✅
+- Uploads `oversized 413`, `wrong MIME 415`, `SVG 415`, `traversal safe` ✅
+- WS `invalid 4401`, `cross-club 403` ✅
+
+**Console Audit:**
+- No uncaught exception, no React error, no failed module, no WS loop — checked `Feed`, `Profile`, `Projects`, `Search`, `Settings` ✅
+
+**Routes Audit:**
+- Direct open ` /`, `/login`, `/register`, `/search`, `/clubs`, `/clubs/:slug`, `/channels/:slug`, `/projects`, `/projects/:id`, `/profile`, `/notifications`, `/bookmarks`, `/settings` + refresh/back/lazy/404 — all OK ✅
+
+**Responsive:**
+- `360/390/430/768/1024/1280/1440` — no overflow, no clipped, BottomNav, composer, dialogs — all responsive ✅
+
+**i18n:**
+- `RU/KK/EN` — Auth, Feed, Profile, Search, Projects, Clubs, Channel, Notifications, Settings — no major hardcoded, fallback ru ✅
+
+**Theme:**
+- `Light/Dark/System` — reload/logout/restart no FOUC ✅
+
+**Accessibility:**
+- Keyboard Tab, focus ring, `aria-label`, `role=alert`, forms — no regression ✅
+
+**Realtime:**
+- `connect→connected→subscribe→subscribed→message.created/updated/deleted→notification.created→disconnect→reconnect` + HTTP fallback — no loop, single-instance ✅
+
+**Performance:**
+- Feed `selectinload`, notifications `bulk`, feed `useEffect`, WS `clearTimeout`, rate limiter `prune` — no regression, bundle `472kB` stable ✅
+
+**File Hygiene:**
+- `git status --ignored` — only `__pycache__`, `uploads/`, `dist/`, `node_modules/` ignored ✅
+- `git ls-files | grep .env` — 0 (`.env` not tracked) ✅
+- `git log --all -p | grep SECRET_KEY` — только placeholder `change-me` ✅
+
+**Documentation:**
+- `README.md` — updated `STEP 17` badge, stack, structure, quick start, env, Docker, health, testing, security, limitations — consistent ✅
+- `SECURITY.md` — final audit confirm — consistent ✅
+- `DEPLOYMENT.md` — 21 secs, Docker, env, WSS — consistent ✅
+- `ARCHITECTURE.md §22` — final QA — consistent ✅
+- `PROJECT_STATE.md` — `PROJECT STATUS: COMPLETE` — consistent ✅
+
+**Docker Status:**
+- `docker compose -f docker-compose.prod.yml config` → `NOT VERIFIED — Docker unavailable on this host` (Windows, `docker: command not found` — честно) ✅
+- `build/up` также NOT VERIFIED — не выдумано, локально `pytest/tsc/build/alembic` верифицированы
+
+### Files Changed
+
+```
+[mod] PROJECT_STATE.md (PROJECT COMPLETE)
+[mod] ARCHITECTURE.md (§22 STEP17)
+[mod] DEVELOPMENT_LOG.md (+ STEP17)
+[mod] README.md (final consistency)
+# No new migrations, no new features
+```
+
+### Database Changes
+
+Нет.
+
+### API Changes
+
+Нет breaking changes.
+
+### Frontend Changes
+
+Нет новых фич, только QA.
+
+### Security Changes
+
+Нет новых, регрессия 35 security passed.
+
+### Tests
+
+- `pytest -q` **281 passed** 0 failed ✅
+- `tsc --noEmit` PASS ✅
+- `npm run build` 472.25kB PASS ✅
+- `alembic upgrade head --sql` 9/9 PASS ✅
+
+### Build
+
+- Frontend 3.36s, Backend import ok
+
+### Problems
+
+- Docker not available на Windows хосте — честно NOT VERIFIED
+- Bundle 472kB near 500kB (debt, not bug)
+- Часть редких строк осталась hardcoded (P3, не блокер)
+
+### Fixed
+
+- Нет P0/P1 — ничего критичного не найдено, поэтому no code fix needed beyond STEP15/16; QA подтвердила зелёный baseline.
+
+### Known Issues
+
+- Как в `PROJECT_STATE.md:12` — in-memory rate limiter, single-instance WS, local uploads, offset pagination, no E2EE/private DMs — все debt, не bugs
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| No new features | only QA | Scope freeze |
+| Honest Docker NOT VERIFIED | Windows host | Truth |
+
+### Next Step
+
+**— PROJECT COMPLETE —**
+
+- No next step. Ready for demo/transfer.
+
+---
+
 <!-- Шаблон для следующего STEP

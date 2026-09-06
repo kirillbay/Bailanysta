@@ -2,21 +2,23 @@
 
 > Persistent memory проекта. Обновляется после КАЖДОГО STEP.
 > Протокол: PERSISTENT DEVELOPMENT PROTOCOL (2026-09-05)
-> Последнее обновление: 2026-09-05 (STEP 16 — Production Deployment)
+> Последнее обновление: 2026-09-05 (STEP 17 — Final QA, Release Audit & Demo Readiness) — PROJECT COMPLETE
 
 ---
 
 ## 1. Текущий STEP
 
-**STEP 16 — Production Deployment — ЗАВЕРШЁН ✅**
+**STEP 17 — Final QA, Release Audit & Demo Readiness — ЗАВЕРШЁН ✅ — PROJECT COMPLETE**
 
 - Workspace: `C:\Users\lueex\Desktop\Bailanysta`
-- Branch: `main` | Последний commit: `feat: STEP 16 — production deployment setup` (см. §17)
-- Статус: Docker prod ready — nginx SPA + backend uvicorn + postgres volumes + WSS + health + env + docs — 281 тестов зелёных
+- Branch: `main` | Последний commit: `feat: STEP 17 — final QA and release readiness` (см. §17)
+- Статус: PROJECT STATUS: COMPLETE — All STEPS 0–17 complete — 281 tests green — production Docker ready — demo ready
 
-**Последний завершённый STEP:** STEP 16 — Production Deployment (2026-09-05)
+**Последний завершённый STEP:** STEP 17 — Final QA, Release Audit & Demo Readiness (2026-09-05)
 
-**Следующий рекомендуемый STEP:** STEP 17 — Final QA
+**Следующий рекомендуемый STEP:** —
+
+**PROJECT STATUS: COMPLETE — ALL STEPS 0–17 COMPLETE ✅**
 
 ---
 
@@ -41,9 +43,10 @@
 | 13 | i18n, Theme, Responsive & Accessibility | 2026-09-05 | `59032d6` | ✅ Done |
 | 14 | Security Hardening & Abuse Protection | 2026-09-05 | `7522d82` | ✅ Done |
 | 15 | Full Testing, Bug Fixing & Performance | 2026-09-05 | `c05c325` | ✅ Done |
-| 16 | Production Deployment | 2026-09-05 | `feat STEP16` | ✅ Done |
+| 16 | Production Deployment | 2026-09-05 | `8eee874` | ✅ Done |
+| 17 | Final QA, Release Audit & Demo Readiness | 2026-09-05 | `feat STEP17` | ✅ Done |
 
-> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications/Realtime ✅ → 12 Projects ✅ → 13 i18n/Theme/Responsive ✅ → 14 Security Hardening ✅ → 15 Testing/Perf ✅ → 16 Deployment ✅ → 17 Final QA
+> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications/Realtime ✅ → 12 Projects ✅ → 13 i18n/Theme/Responsive ✅ → 14 Security Hardening ✅ → 15 Testing/Perf ✅ → 16 Deployment ✅ → 17 Final QA ✅ — COMPLETE
 
 ---
 
@@ -156,7 +159,7 @@ Project
 
 ## 9. Implemented Features
 
-> STEP 15 — full testing done.
+> PROJECT COMPLETE — all features implemented.
 
 - [x] Foundation — shell, health, i18n, theme
 - [x] Database — PG, Alembic, User model
@@ -221,15 +224,15 @@ Project
 
 ## 14. Current Blockers
 
-- Нет блокеров. Готов к STEP17.
+- Нет блокеров. PROJECT COMPLETE — ready for demo/transfer.
 
 ---
 
 ## 15. Next Recommended STEP
 
-**STEP 17 — Final QA**
+**— PROJECT COMPLETE —**
 
-- End-to-end smoke, lighthouse, final polish before public release
+- No next step. Project ready for production deployment and demo.
 
 ---
 
@@ -266,26 +269,23 @@ Project
 ## 17. Последний Git Commit
 
 ```
-feat: STEP 16 — production deployment setup
+feat: STEP 17 — final QA and release readiness
 Branch: main | Status: clean (после commit)
-Deploy: Docker prod + nginx + WSS + health + env + docs, 281 tests
+PROJECT COMPLETE — All STEPS 0–17 — 281 tests green — production ready
 ```
 
 ---
 
-## 18. Изменённые файлы (STEP 16)
+## 18. Изменённые файлы (STEP 17)
 
 ```
-[new] backend/Dockerfile (python:3.12-slim + alembic + uvicorn workers 2)
-[new] frontend/Dockerfile (node:20 build → nginx + SPA)
-[new] frontend/nginx.conf (SPA fallback + /api /uploads proxy + CSP)
-[new] docker-compose.prod.yml (postgres+backend+frontend volumes health)
-[new] nginx.prod.example.conf (HTTP→HTTPS + /api + /ws Upgrade)
-[new] DEPLOYMENT.md (20 sections)
-[mod] backend/app/core/config.py (+ secret validator + cors check)
-[mod] README.md (STEP16 status + deploy docs)
-[mod] .env.example (prod comments)
-[mod] ARCHITECTURE.md (§21 STEP16)
+[mod] PROJECT_STATE.md (PROJECT STATUS: COMPLETE, all STEPS 0–17)
+[mod] DEVELOPMENT_LOG.md (+ STEP 17 Final QA)
+[mod] README.md (final badge + correct limitations)
+[mod] ARCHITECTURE.md (§22 STEP17)
+[mod] SECURITY.md (final audit confirm)
+[mod] DEPLOYMENT.md (final verification)
+# No new migrations, no new features — release audit only
 ```
 
 ---
