@@ -45,7 +45,21 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> List[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        # Robust parsing: handle quotes, trailing slashes, empty entries
+        # Render may set "https://bailanysta-front.onrender.com" with quotes or trailing slash
+        origins = []
+        for o in self.cors_origins.split(","):
+            o = o.strip()
+            if not o:
+                continue
+            # Strip surrounding quotes if present (e.g., "https://..." or 'https://...')
+            if len(o) >= 2 and ((o[0] == '"' and o[-1] == '"') or (o[0] == "'" and o[-1] == "'")):
+                o = o[1:-1].strip()
+            # Normalize: strip trailing slash for consistency (Origin header never has trailing slash)
+            o = o.rstrip("/")
+            if o:
+                origins.append(o)
+        return origins
 
     @property
     def is_production(self) -> bool:
