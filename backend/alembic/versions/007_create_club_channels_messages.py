@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = "007_create_club_channels_messages"
-down_revision: Union[str, None] = "006_create_clubs"
+down_revision: Union[str, None] = "006_fix_alembic_version"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
