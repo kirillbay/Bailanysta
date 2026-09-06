@@ -2405,4 +2405,30 @@ PASS WITH LIMITATIONS — все P0/P1 flows работают, P2/P3 тольк�
 
 ---
 
+
+## FIX — Branding Followers Club Avatar Polish (2026-09-05)
+
+### Branding
+
+- Найден `frontend/src/components/layout/AppShell.tsx` `Sidebar` + `TopBar` `[ B ] Bailanysta IT Community` (`h-8 w-8 rounded-xl bg-foreground` + `h-7 w-7`).
+- Заменён на `<img src="/bailanysta-demo-avatar.jpg" alt="Bailanysta" className="h-8 w-8 rounded-xl object-cover border shadow-sm" />` и `h-7 w-7` для mobile — использует уже скопированный `frontend/public/bailanysta-demo-avatar.jpg` (503KB) + `backend/uploads/avatars/bailanysta-demo-avatar.jpg` для `/uploads` (demo). Не трогает `Bailanysta Demo` user avatar (остаётся тот же файл, но теперь бренд и демо используют один asset логично). Desktop/mobile проверены, `object-cover` `border` `alt`.
+
+### Followers Bug
+
+- **Root cause:** `ProfilePage.tsx` `followMut` `onMutate` только `setFollowOptimistic(!currently)` + `qc.setQueryData` для `is_following`, но не для `followers_count`. UI показывал `data.followers_count` (старое) до refetch → лаг на 1. После `follow` показывал 0, после `unfollow` 1.
+- **Fix:** `followersCountOptimistic` + `onMutate` `setFollowersCountOptimistic(current ? count-1 : count+1)` + `qc.setQueryData` для `followers_count`, `onError` сброс, `onSuccess` инвалидация + `setTimeout` очистка. `followersCount = followersCountOptimistic ?? data.followers_count`. Теперь `0→1→0` корректно, refresh также 1/0.
+- **Regression test:** `backend/app/tests/test_followers_count.py` — follow 0→1→0 via `GET /users/{username}`.
+
+### Club Avatar
+
+- Найден `frontend/src/pages/ClubPage.tsx` `h-32` + `h-16 w-16 -mt-8` в `overflow-hidden rounded-[24px]` → клиппинг.
+- **Fix:** `outer` `rounded-[24px] border bg-card` (убрано `overflow-hidden`) + `cover h-44 rounded-t-[24px] overflow-hidden` + `avatar h-24 w-24 -mt-16 relative z-10 border-4 shadow-sm` + `avatar_url` image support. Как в `ProfilePage` (`h-44/-mt-16/z-10`), но без копипаста. Проверено `avatar image` + `fallback B` + `long name` desktop/mobile.
+
+### Verified
+
+- `pytest 284` (283+1), `tsc` PASS, `vite build` 473.94kB PASS
+- Chrome `http://localhost:5173/search` → `Clubs` tab `Demo Club`, `http://localhost:5173/messages` → `Клубы` + `general`, `http://localhost:5173/profile/demo` → cover `h-44` avatar `h-24` полностью ниже, `http://localhost:5173` `B` заменён на image, `follow 0→1→0` via `httpx` + UI.
+
+---
+
 <!-- Шаблон для следующего STEP

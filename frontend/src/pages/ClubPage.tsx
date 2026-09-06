@@ -118,14 +118,20 @@ export function ClubPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="overflow-hidden rounded-[24px] border bg-card">
-        <div className="h-32 bg-gradient-to-br from-violet-500 via-indigo-500 to-sky-500 relative">
+      <div className="rounded-[24px] border bg-card">
+        <div className="h-44 bg-gradient-to-br from-violet-500 via-indigo-500 to-sky-500 relative rounded-t-[24px] overflow-hidden">
           {club.cover_url && <img src={club.cover_url} alt="cover" className="h-full w-full object-cover" />}
         </div>
         <div className="p-5">
           <div className="flex gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-foreground text-background text-lg font-bold -mt-8 border-4 border-card">
-              {club.name.slice(0, 2).toUpperCase()}
+            <div className="-mt-16 relative z-10">
+              {club.avatar_url ? (
+                <img src={club.avatar_url} alt={club.name} className="h-24 w-24 rounded-2xl object-cover border-4 border-card shadow-sm bg-card" />
+              ) : (
+                <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-foreground text-background text-xl font-bold border-4 border-card shadow-sm">
+                  {club.name.slice(0, 2).toUpperCase()}
+                </div>
+              )}
             </div>
             <div className="flex-1">
               <h1 className="text-lg font-semibold">{club.name}</h1>

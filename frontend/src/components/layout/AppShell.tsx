@@ -95,9 +95,11 @@ function Sidebar() {
   return (
     <aside className="hidden w-[260px] shrink-0 flex-col gap-4 border-r bg-card/50 p-4 lg:flex">
       <div className="flex items-center gap-2.5 px-2 py-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-foreground text-background font-bold text-sm">
-          Б
-        </div>
+        <img
+          src="/bailanysta-demo-avatar.jpg"
+          alt="Bailanysta"
+          className="h-8 w-8 rounded-xl object-cover border shadow-sm"
+        />
         <div>
           <div className="text-sm font-semibold leading-none">Bailanysta</div>
           <div className="text-[11px] text-muted-foreground">IT community</div>
@@ -178,9 +180,11 @@ function TopBar() {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 px-4 backdrop-blur lg:hidden">
       <div className="flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-background font-bold text-xs">
-          Б
-        </div>
+        <img
+          src="/bailanysta-demo-avatar.jpg"
+          alt="Bailanysta"
+          className="h-7 w-7 rounded-lg object-cover border shadow-sm"
+        />
         <span className="text-sm font-semibold">Bailanysta</span>
       </div>
       <div className="flex items-center gap-2">

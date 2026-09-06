@@ -61,6 +61,7 @@ export function ProfilePage() {
   const [uploading, setUploading] = useState<"avatar" | "cover" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [followOptimistic, setFollowOptimistic] = useState<boolean | null>(null);
+  const [followersCountOptimistic, setFollowersCountOptimistic] = useState<number | null>(null);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<EditValues>({
     resolver: zodResolver(editSchema),
@@ -87,11 +88,27 @@ export function ProfilePage() {
     },
     onMutate: () => {
       const currently = followOptimistic ?? data?.is_following ?? false;
+      const currentCount = followersCountOptimistic ?? data?.followers_count ?? 0;
       setFollowOptimistic(!currently);
+      setFollowersCountOptimistic(currently ? currentCount - 1 : currentCount + 1);
+      // Optimistically update cache for instant feedback
+      qc.setQueryData(["profile", targetUsername], (old: any) => {
+        if (!old) return old;
+        return { ...old, is_following: !currently, followers_count: currently ? (old.followers_count ?? 1) - 1 : (old.followers_count ?? 0) + 1 };
+      });
     },
-    onError: () => setFollowOptimistic(null),
+    onError: () => {
+      setFollowOptimistic(null);
+      setFollowersCountOptimistic(null);
+      qc.invalidateQueries({ queryKey: ["profile", targetUsername] });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["profile", targetUsername] });
+      // Clear optimistic after server confirms — let refetched data take over
+      setTimeout(() => {
+        setFollowOptimistic(null);
+        setFollowersCountOptimistic(null);
+      }, 500);
     },
   });
 
@@ -143,6 +160,8 @@ export function ProfilePage() {
 
   const coverUrl = usersApi.resolveUrl((data as any).cover_url);
   const isFollowing = followOptimistic ?? (data as any).is_following ?? false;
+  const followersCount = followersCountOptimistic ?? (data as any).followers_count ?? 0;
+  const followingCount = (data as any).following_count ?? 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -165,8 +184,8 @@ export function ProfilePage() {
               <p className="text-sm text-muted-foreground">@{data.username}</p>
               {(data as any).bio && <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">{(data as any).bio}</p>}
               <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
-                <span><b className="text-foreground">{(data as any).followers_count ?? 0}</b> followers</span>
-                <span><b className="text-foreground">{(data as any).following_count ?? 0}</b> following</span>
+                <span><b className="text-foreground">{followersCount}</b> followers</span>
+                <span><b className="text-foreground">{followingCount}</b> following</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">С нами с {new Date(data.created_at).toLocaleDateString("ru-RU")}</p>
             </div>
