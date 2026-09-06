@@ -5,6 +5,67 @@
 
 ---
 
+## 0. Easy Installation (for everyone)
+
+### Quick Install (Windows — 1 click)
+
+**Самый простой способ — не разбираться в Python/Node/PostgreSQL:**
+
+1. Установи [Docker Desktop](https://www.docker.com/products/docker-desktop/) — официальный сайт, включает Docker Engine + Compose + WSL2.
+   Документация: https://docs.docker.com/desktop/setup/install/windows-install/ + WSL2: https://learn.microsoft.com/en-us/windows/wsl/install
+   После установки перезагрузи Windows и запусти Docker Desktop (должен показать `Running`).
+
+2. Скачай Bailanysta (`git clone` или ZIP) и открой папку `C:\Users\lueex\Desktop\Bailanysta` в Проводнике.
+
+3. Двойной клик по **`install.bat`** → откроется PowerShell установщик.
+
+Что делает `install.bat` → `install.ps1`:
+- проверяет Windows, Docker, Compose, daemon, WSL2
+- проверяет `docker-compose.prod.yml`
+- создаёт `.env` из `.env.example` если нет (не перезаписывает существующий без спроса)
+- генерирует `SECRET_KEY` криптографически (`secrets.token_hex(32)` или `RNGCryptoServiceProvider`) если `change-me`
+- ставит `APP_ENV=production`, `DEBUG=false`
+- проверяет `DATABASE_URL`, `CORS_ORIGINS`, `VITE_API_URL`
+- `docker compose -f docker-compose.prod.yml config` → `build` → `up -d`
+- ждёт healthchecks, показывает `ps` + `logs --tail=100`
+- проверяет `http://localhost:8000/health` + `/api/v1/health`
+- открывает `http://localhost` в браузере
+- при ошибке показывает диагностику и логи
+
+4. Готово: **Frontend http://localhost**, **Backend http://localhost:8000/docs**, **Health http://localhost:8000/health**
+
+Другие скрипты (тоже двойной клик):
+- **`update.bat`** → `update.ps1` — сохраняет `.env`, `git pull` (если git), `build` + `up -d` + `alembic upgrade head`
+- **`uninstall.bat`** → `uninstall.ps1` — `docker compose down` **без `-v`** (данные `postgres_data` + `uploads_data` сохраняются). Для удаления данных: `.\uninstall.ps1 -RemoveVolumes` (требует `YES`).
+
+Подробнее — см. `install.ps1` комментарии и §1-21 ниже.
+
+### Manual Installation (для разработчика)
+
+```powershell
+# 1. Подготовка
+cp .env.example .env
+# заполни SECRET_KEY (openssl rand -hex 32), DATABASE_URL, CORS_ORIGINS, VITE_API_URL
+
+# 2. Проверка
+docker compose -f docker-compose.prod.yml config
+
+# 3. Сборка и запуск
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d
+
+# 4. Проверка
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs --tail=100
+curl http://localhost:8000/health
+curl http://localhost:8000/api/v1/health
+# Frontend: http://localhost
+```
+
+См. §3-21 для полного manual flow (env, secret, postgres, migrations, nginx, HTTPS, WSS, backups).
+
+---
+
 ## 1. Prerequisites
 
 - Docker + Docker Compose v2

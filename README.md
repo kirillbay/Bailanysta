@@ -112,9 +112,24 @@ Bailanysta/
 
 ---
 
-## ⚡ Quick Start (after STEP 1)
+## ⚡ Easy Install (Windows — for everyone)
 
-> **Current:** STEP 0 — workspace initialized, no runnable code yet. Instructions below will work starting STEP 1.
+**Не хочешь разбираться в Python/Node/Postgres?**
+
+1. Установи [Docker Desktop](https://www.docker.com/products/docker-desktop/) (официально, включает WSL2 + Compose). Перезагрузись, запусти Docker Desktop.
+2. Скачай Bailanysta и открой папку в Проводнике.
+3. Двойной клик **`install.bat`** — всё остальное сделает `install.ps1`: проверит Docker, создаст `.env` + `SECRET_KEY`, `build` + `up -d`, проверит health, откроет http://localhost.
+4. Готово: **http://localhost** (frontend), **http://localhost:8000/docs** (API).
+
+Другие: **`update.bat`** (обновить, сохраняет `.env`), **`uninstall.bat`** (остановить, **сохраняет** БД/uploads; для удаления данных `.\uninstall.ps1 -RemoveVolumes`).
+
+Подробнее: `DEPLOYMENT.md §0` — `install.ps1` комментарии, troubleshooting, backup.
+
+---
+
+## ⚡ Quick Start (for developers, after STEP 1)
+
+> **Current:** Bailanysta COMPLETE — `docker-compose.prod.yml` ready. Dev instructions below also work.
 
 ### Prerequisites
 
