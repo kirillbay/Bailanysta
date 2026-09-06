@@ -425,7 +425,16 @@ Project
 - Accessibility: semantic `button` vs `div`, `label htmlFor`, `aria-label` for icon-only (Heart/MessageCircle/Repeat2/Bookmark/Share2 → a11y.*), `role=alert` for errors, `aria-busy`, keyboard Tab flows (Login→Register→Post→Project→Channel→Settings) no trap, focus visible `ring-2`
 - Bundle: `App.tsx` lazy 14 routes `Suspense` fallback skeleton, Vite code-split per route, main 472kB gzip 145kB (css 18.98kB) vs 527kB before, chunk warning mitigated but remains near threshold (documented debt, stability > optimization)
 - No new large features (private DM, E2EE, voice, AI, GitHub OAuth) per §24
-- Следующий: **STEP 15 — Testing & Performance**
+- Следующий: **STEP 16 — Deployment**
+
+## 20. STEP 15 Implementation (2026-09-05)
+
+**Full Testing, Bug Fixing & Performance реализован:**
+- Backend: `feed.py` `selectinload(Post.author/media/hashtags)` устраняет N+1, `notifications.py` bulk `actor_map` для 100 notifs → 1 query вместо 100, `rate_limit.py` memory prune при >5000 keys (LRU), все 9 миграций `--sql` OK
+- Frontend: `FeedPage.tsx` fix P1 `queryFn` side-effect → `useEffect` accumulation (предотвращает stale closure и бесконечный loop), `useRealtime.ts` fix P2 `timeoutRef` cleanup (предотвращает leak reconnect timers), `PostComposer.tsx` fix P3 `useEffect` revoke `URL.createObjectURL` on unmount (memory leak), `hasMore` offset pagination уже корректна, `App.tsx` lazy 14 routes `472kB` stable
+- Tests: `tests/test_edgecases.py` 16 новых (unicode, username min/max, post 10000/10001, comment 2000/2001, message 10000, empty, invalid UUID, 404, pagination `limit=0`/`-1`/`999999`/`51`, duplicate like/follow, nonexistent, story expiration, cascade delete, GitHub validation, search empty/101) — все 16 passed, total `281`
+- QA: Auth `Register→Login→Logout→Login` ✅, Feed `Create→Like→Comment→Repost→Bookmark` ✅, Profile `Edit→Avatar` ✅, Search `User/Post/Club/Project` ✅, Clubs `Create→Join→Channel→Message` ✅, Notifications `Mark read` ✅, Stories `Create→View` ✅, Projects `Create→Edit→Search→Delete` ✅, Settings `language/theme` ✅, Realtime `WS connect→reconnect` ✅, Routing `direct URL/refresh/back` ✅, Performance `N+1` audit, Bundle `472kB gz145kB` stable
+- Следующий: **STEP 16 — Deployment**
 
 ## 19. STEP 14 Implementation (2026-09-05)
 
@@ -437,4 +446,13 @@ Project
 - `services/storage.py` — `Pillow verify`, `UUID`, `safe_subdir`, `SVG 415`, `10MB` guard
 - Frontend: no `dangerouslySetInnerHTML`, `rel="noopener noreferrer"` для external links, `a11y` уже в STEP13
 - Tests: `tests/test_security.py` 35 новых (auth, CSRF, IDOR, privilege, rate limit 429, input, XSS, URL, upload, headers, WS, notification privacy, search wildcard)
-- Следующий: **STEP 15 — Testing & Performance**
+- Следующий: **STEP 16 — Deployment**
+
+## 20. STEP 15 Implementation (2026-09-05)
+
+**Full Testing, Bug Fixing & Performance реализован:**
+- Backend: `feed.py` `selectinload(Post.author/media/hashtags)` устраняет N+1, `notifications.py` bulk `actor_map` для 100 notifs → 1 query вместо 100, `rate_limit.py` memory prune при >5000 keys (LRU), все 9 миграций `--sql` OK
+- Frontend: `FeedPage.tsx` fix P1 `queryFn` side-effect → `useEffect` accumulation (предотвращает stale closure и бесконечный loop), `useRealtime.ts` fix P2 `timeoutRef` cleanup (предотвращает leak reconnect timers), `PostComposer.tsx` fix P3 `useEffect` revoke `URL.createObjectURL` on unmount (memory leak), `hasMore` offset pagination уже корректна, `App.tsx` lazy 14 routes `472kB` stable
+- Tests: `tests/test_edgecases.py` 16 новых (unicode, username min/max, post 10000/10001, comment 2000/2001, message 10000, empty, invalid UUID, 404, pagination `limit=0`/`-1`/`999999`/`51`, duplicate like/follow, nonexistent, story expiration, cascade delete, GitHub validation, search empty/101) — все 16 passed, total `281`
+- QA: Auth `Register→Login→Logout→Login` ✅, Feed `Create→Like→Comment→Repost→Bookmark` ✅, Profile `Edit→Avatar` ✅, Search `User/Post/Club/Project` ✅, Clubs `Create→Join→Channel→Message` ✅, Notifications `Mark read` ✅, Stories `Create→View` ✅, Projects `Create→Edit→Search→Delete` ✅, Settings `language/theme` ✅, Realtime `WS connect→reconnect` ✅, Routing `direct URL/refresh/back` ✅, Performance `N+1` audit, Bundle `472kB gz145kB` stable
+- Следующий: **STEP 16 — Deployment**

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { postsApi } from "@/api/posts";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,13 @@ export function PostComposer({ onCreated }: { onCreated?: () => void }) {
   };
 
   const remaining = MAX_CHARS - content.length;
+
+  // Cleanup object URLs on unmount to prevent memory leak (P3)
+  useEffect(() => {
+    return () => {
+      previews.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [previews]);
 
   return (
     <Card>

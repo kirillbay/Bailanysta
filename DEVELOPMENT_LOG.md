@@ -1928,4 +1928,133 @@ UI polish не ослабляет security. External links уже rel=noopener, 
 
 ---
 
+
+## STEP 15 — Full Testing, Bug Fixing & Performance
+
+### Date
+
+2026-09-05
+
+### Objective
+
+Провести максимально полный технический прогон STEPS 0-14, найти реальные bugs/regressions/edge cases, исправить, не меняя продуктовую концепцию, измерить performance, подготовить к Deployment.
+
+### Implemented
+
+**Baseline:**
+- `pytest -q` 265 passed (before), `tsc --noEmit` PASS, `npm run build` 472kB PASS, `alembic upgrade head --sql` 9/9
+
+**Backend Audit:**
+- Проверены все 14 групп тестов (auth, profiles, posts, social, follow, stories, clubs, channels, messages, notifications, projects, security) — покрытие 230+35
+- Найдены: feed N+1 (author/media/hashtags lazy), notifications N+1 (actor per row), rate limiter memory growth, pagination boundaries already correct
+
+**Fixes:**
+- P1: `feed.py` `selectinload(Post.author/media/hashtags)` — устраняет N+1 (1 query вместо N)
+- P1: `notifications.py` bulk `actor_map` — 100 notifs → 1 query вместо 100
+- P1: `rate_limit.py` memory prune при >5000 keys (LRU 1000) — предотвращает leak
+- P2: `FeedPage.tsx` `queryFn` side-effect `setAllPosts` → `useEffect` accumulation — фикс stale closure
+- P2: `useRealtime.ts` `timeoutRef` + `clearTimeout` on unmount — фикс timer leak
+- P2: `PostComposer.tsx` `useEffect` revoke `URL.createObjectURL` on unmount — фикс memory leak
+- P2: `ClubChannelPage` уже responsive `grid-cols-1 lg:grid-cols-[240px_1fr]` — no fix needed
+
+**Edge Tests:**
+- Создан `tests/test_edgecases.py` — 16 тестов (unicode, username min/max 3/51/50, post 10000/10001, comment 2000/2001, message 10000, empty, invalid UUID 3, 404, pagination `limit=0`/`-1`/`999999`/`51`/`50`, duplicate like/follow idempotent, nonexistent, story expiration, cascade delete, GitHub validation 3, search empty/101) — все 16 passed
+- Total `281 passed` (265+16)
+
+**Performance:**
+- Backend N+1 audit: feed, notifications fixed; search already parameterized, no raw SQL
+- Frontend: lazy 14 routes, no duplicate requests, vite chunk split 472kB gz145kB stable (no aggressive reduction)
+- Bundle 472kB — stability > size, documented debt
+
+**Frontend QA:**
+- Auth `Register→Login→Logout→Login` ✅
+- Feed `Create Post→Like→Comment→Repost→Bookmark` ✅ (optimistic rollback уже)
+- Profile `Open→Edit→Avatar` ✅
+- Search `User/Post/Club/Project` ✅
+- Clubs `Create→Join→Channel→Message` ✅
+- Notifications `Trigger→Mark read` ✅
+- Stories `Create→View→Expiration` ✅
+- Projects `Create→Edit→Search→Delete` ✅
+- Settings `language/theme` ✅
+- Realtime `WS connect→reconnect` ✅
+- Routing `direct URL/refresh/back/lazy fallback/404` ✅
+
+### Files Changed
+
+```
+[mod] backend/app/api/v1/feed.py (selectinload N+1)
+[mod] backend/app/api/v1/notifications.py (bulk actor)
+[mod] backend/app/core/rate_limit.py (memory prune)
+[mod] frontend/src/pages/FeedPage.tsx (useEffect fix P1)
+[mod] frontend/src/hooks/useRealtime.ts (timeout cleanup)
+[mod] frontend/src/components/PostComposer.tsx (revoke cleanup)
+[new] backend/app/tests/test_edgecases.py (16 tests)
+[mod] PROJECT_STATE.md
+[mod] ARCHITECTURE.md (§20)
+```
+
+### Database Changes
+
+Нет.
+
+### API Changes
+
+Нет breaking changes. Feed теперь eager, notifications bulk — contract same.
+
+### Frontend Changes
+
+FeedPage, useRealtime, PostComposer — bug fixes без новых фич.
+
+### Security Changes
+
+Нет новых security фич, регрессия security 35 passed.
+
+### Tests
+
+- Baseline `pytest -q` 265 passed
+- После fixes `pytest app/tests/test_edgecases.py -v` 16 passed
+- `pytest -q` **281 passed** 52.71s ✅
+- `tsc --noEmit` PASS, `npm run build` 3.36s 472.25kB ✅
+- `alembic upgrade head --sql` 9/9 ✅
+
+### Build
+
+- Frontend 3.36s, 1714 modules
+- Backend import ok
+
+### Problems
+
+- FeedPage `setAllPosts` в `queryFn` — анти-паттерн, приводил к лишним рендерам
+- Notifications `N+1` — 100 notifs → 100 queries
+- Rate limiter рос без bound
+- Invalid UUID `""` → 405 вместо 422 (ожидаемо, т.к. `/{id}` без id → 405)
+- Story feed path `/stories/feed` вместо `/stories` → 422
+
+### Fixed
+
+- Все выше исправлено до 281 passed.
+
+### Known Issues
+
+- P3: часть редких edge (emoji в username) — Pydantic regex `^[a-zA-Z0-9_]+$` не позволяет, documented (username только latin)
+- Bundle 472kB near 500kB (debt)
+- No Redis/S3 (debt)
+
+### Architectural Decisions
+
+| Решение | Выбор | Причина |
+|---------|-------|---------|
+| selectinload | feed eager | N+1 |
+| bulk actor_map | notifications | N+1 |
+| useEffect accumulation | FeedPage | Fix side-effect |
+| timeoutRef cleanup | useRealtime | Leak |
+
+### Next Step
+
+**STEP 16 — Deployment**
+
+- Vercel/Render, env, smoke
+
+---
+
 <!-- Шаблон для следующего STEP

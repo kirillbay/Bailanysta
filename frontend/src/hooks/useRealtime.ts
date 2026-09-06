@@ -13,6 +13,8 @@ export function useChannelRealtime(channelId: string | null) {
   const wsRef = useRef<WebSocket | null>(null);
   const backoffRef = useRef(1000);
 
+  const timeoutRef = useRef<number | null>(null);
+
   const connect = useCallback(() => {
     if (!channelId) return;
     setStatus("connecting");
@@ -29,7 +31,6 @@ export function useChannelRealtime(channelId: string | null) {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === "message.created") {
-          // deduplicate by id handled via invalidate, but also append optimistically
           qc.invalidateQueries({ queryKey: ["club-messages"] });
         } else if (msg.type === "message.updated") {
           qc.invalidateQueries({ queryKey: ["club-messages"] });
@@ -42,7 +43,7 @@ export function useChannelRealtime(channelId: string | null) {
     ws.onclose = () => {
       setStatus("reconnecting");
       const delay = Math.min(backoffRef.current, 16000);
-      setTimeout(() => {
+      timeoutRef.current = window.setTimeout(() => {
         backoffRef.current = Math.min(backoffRef.current * 2, 16000);
         connect();
       }, delay);
@@ -61,6 +62,7 @@ export function useChannelRealtime(channelId: string | null) {
       try {
         wsRef.current?.close();
       } catch {}
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
     };
   }, [connect]);
 

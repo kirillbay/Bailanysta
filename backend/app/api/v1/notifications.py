@@ -12,10 +12,13 @@ from app.models.notification import Notification
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
-def _to_read(n: Notification, db: Session):
+def _to_read(n: Notification, db: Session, actor_map: dict | None = None):
     actor = None
     if n.actor_id:
-        actor = db.query(User).filter(User.id == n.actor_id).first()
+        if actor_map is not None:
+            actor = actor_map.get(n.actor_id)
+        else:
+            actor = db.query(User).filter(User.id == n.actor_id).first()
     return {
         "id": n.id, "recipient_id": n.recipient_id, "actor_id": n.actor_id,
         "actor": {"id": actor.id, "username": actor.username, "display_name": actor.display_name, "avatar_url": actor.avatar_url} if actor else None,
@@ -30,7 +33,13 @@ def list_notifications(db: Session = Depends(get_db), current_user: User = Depen
         q = q.filter(Notification.is_read == False)
     q = q.order_by(Notification.created_at.desc())
     notifs = q.offset(offset).limit(min(limit,100)).all()
-    return [_to_read(n, db) for n in notifs]
+    # Bulk load actors to avoid N+1
+    actor_ids = {n.actor_id for n in notifs if n.actor_id}
+    actor_map = {}
+    if actor_ids:
+        actors = db.query(User).filter(User.id.in_(actor_ids)).all()
+        actor_map = {a.id: a for a in actors}
+    return [_to_read(n, db, actor_map) for n in notifs]
 
 @router.get("/unread-count")
 def unread_count(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

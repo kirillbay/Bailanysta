@@ -1,7 +1,7 @@
 """Global feed."""
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func
 
 from app.core.deps import get_current_user
@@ -45,5 +45,6 @@ def _enrich(posts, db: Session, current_user_id):
 
 @router.get("", response_model=list)
 def global_feed(db: Session = Depends(get_db), current_user: User = Depends(get_current_user), limit: int = Query(20, ge=1, le=50), offset: int = Query(0, ge=0)):
-    posts = db.query(Post).order_by(Post.created_at.desc()).offset(offset).limit(min(limit, 50)).all()
+    # Performance: eager load author/media/hashtags to avoid N+1, bulk counts via _enrich
+    posts = db.query(Post).options(selectinload(Post.author), selectinload(Post.media), selectinload(Post.hashtags)).order_by(Post.created_at.desc()).offset(offset).limit(min(limit, 50)).all()
     return _enrich(posts, db, current_user.id)

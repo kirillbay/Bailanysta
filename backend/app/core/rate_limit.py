@@ -31,6 +31,21 @@ def _is_allowed(key: str, limit: int, window: int) -> bool:
     # evict outside window
     while dq and dq[0] <= now - window:
         dq.popleft()
+    # Prune store if too large (prevent memory growth)
+    if len(_store) > 5000:
+        # Remove empty or oldest keys
+        to_del = []
+        for k, v in _store.items():
+            if not v or (v and v[0] <= now - 3600):
+                to_del.append(k)
+            if len(to_del) > 1000:
+                break
+        for k in to_del:
+            _store.pop(k, None)
+        # If still large, drop oldest key
+        if len(_store) > 5000:
+            oldest = next(iter(_store))
+            _store.pop(oldest, None)
     if len(dq) >= limit:
         return False
     dq.append(now)

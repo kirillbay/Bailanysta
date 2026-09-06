@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { PostComposer } from "@/components/PostComposer";
@@ -20,13 +20,16 @@ export function FeedPage() {
 
   const query = useQuery({
     queryKey: ["feed", offset],
-    queryFn: async () => {
-      const data = await feedApi.get(limit, offset);
-      if (offset === 0) setAllPosts(data);
-      else setAllPosts((prev) => [...prev, ...data]);
-      return data;
-    },
+    queryFn: () => feedApi.get(limit, offset),
   });
+
+  // Fix P1: no side-effect in queryFn — use effect to accumulate
+  useEffect(() => {
+    if (query.data) {
+      if (offset === 0) setAllPosts(query.data);
+      else setAllPosts((prev) => [...prev, ...query.data!]);
+    }
+  }, [query.data, offset]);
 
   const hasMore = query.data?.length === limit;
 

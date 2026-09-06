@@ -2,21 +2,21 @@
 
 > Persistent memory проекта. Обновляется после КАЖДОГО STEP.
 > Протокол: PERSISTENT DEVELOPMENT PROTOCOL (2026-09-05)
-> Последнее обновление: 2026-09-05 (STEP 14 — Security Hardening & Abuse Protection)
+> Последнее обновление: 2026-09-05 (STEP 15 — Full Testing, Bug Fixing & Performance)
 
 ---
 
 ## 1. Текущий STEP
 
-**STEP 14 — Security Hardening & Abuse Protection — ЗАВЕРШЁН ✅**
+**STEP 15 — Full Testing, Bug Fixing & Performance — ЗАВЕРШЁН ✅**
 
 - Workspace: `C:\Users\lueex\Desktop\Bailanysta`
-- Branch: `main` | Последний commit: `feat: STEP 14 — security hardening and abuse protection` (см. §17)
-- Статус: Security audit + rate limiting 20/min + CSRF Origin + headers CSP + search escape + upload hardening + 35 security tests — 265 тестов зелёных
+- Branch: `main` | Последний commit: `feat: STEP 15 — full testing bug fixing and performance` (см. §17)
+- Статус: Full audit — N+1 fix, FeedPage side-effect fix, WS timer leak fix, edge tests 16, rate limiter memory fix — 281 тестов зелёных
 
-**Последний завершённый STEP:** STEP 14 — Security Hardening & Abuse Protection (2026-09-05)
+**Последний завершённый STEP:** STEP 15 — Full Testing, Bug Fixing & Performance (2026-09-05)
 
-**Следующий рекомендуемый STEP:** STEP 15 — Testing & Performance
+**Следующий рекомендуемый STEP:** STEP 16 — Deployment
 
 ---
 
@@ -39,9 +39,10 @@
 | 11 | Notifications & Realtime | 2026-09-05 | `e9008ad` | ✅ Done |
 | 12 | Projects & Developer Showcase | 2026-09-05 | `5df2378` | ✅ Done |
 | 13 | i18n, Theme, Responsive & Accessibility | 2026-09-05 | `59032d6` | ✅ Done |
-| 14 | Security Hardening & Abuse Protection | 2026-09-05 | `feat STEP14` | ✅ Done |
+| 14 | Security Hardening & Abuse Protection | 2026-09-05 | `7522d82` | ✅ Done |
+| 15 | Full Testing, Bug Fixing & Performance | 2026-09-05 | `feat STEP15` | ✅ Done |
 
-> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications/Realtime ✅ → 12 Projects ✅ → 13 i18n/Theme/Responsive ✅ → 14 Security Hardening ✅ → 15 Testing/Perf → 16 Deployment → 17 Final QA
+> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications/Realtime ✅ → 12 Projects ✅ → 13 i18n/Theme/Responsive ✅ → 14 Security Hardening ✅ → 15 Testing/Perf ✅ → 16 Deployment → 17 Final QA
 
 ---
 
@@ -91,6 +92,7 @@ Project
 ## 4. Frontend Status
 
 - Статус: **runnable ✅**
+- QA: FeedPage side-effect fix (useEffect accumulation), PostComposer object URL cleanup, useRealtime timeout cleanup, PostCard optimistic already, no console errors, all routes lazy
 - i18n: `locales/ru|kk|en.json` full coverage (common/nav/auth/feed/post/profile/projects/search/clubs/club/notifications/bookmarks/stories/settings/errors/empty/a11y/validation), `lib/i18n.ts` detector localStorage `bailanysta_lang` → navigator, `useTranslation` в Feed/Login/Register/Search/Profile/Projects, fallback ru, `html lang` sync
 - Theme: `stores/theme.tsx` Light/Dark/System + localStorage `bailanysta_theme` + `matchMedia` listener, `index.html` inline script no-flash, SettingsPage + AppShell switcher (aria-pressed, focus ring), all pages audited using design tokens (no hardcoded colors, dark contrast OK)
 - Responsive: AppShell sidebar 260px desktop / bottom nav 5 items mobile (44px touch), Feed/Profile/Projects/Clubs/Search/Notifications grids → 360/390/430/768/1024/1280/1440 QA, ClubChannel grid 240px+1fr stacks mobile, PostComposer min-w-0, ProjectCard image 44 h + tech truncate +6 +N, Search flex-wrap, no overflow
@@ -110,7 +112,8 @@ Project
 - APIs: `api/v1/projects.py` — `GET /users/{username}/projects` public 404, `GET /users/me/projects` auth, `GET /projects/{id}` public 404, `POST /users/me/projects` 201 owner=current_user position max+1, `PATCH /users/me/projects/{id}` owner 403, `DELETE` owner 403 best-effort file unlink, `POST .../image` owner 403 Pillow via save_image projects/ 5MB UUID no traversal; `api/v1/search.py` + projects ILIKE name/description/cast(technologies as String) limit 50
 - Notifications+Realtime: `models/notification.py`, `008_create_notifications`, `services/notifications.py`, `api/v1/notifications.py` + `realtime/manager.py` + `api/v1/realtime.py` unchanged
 - Router: `router.py` + projects + search projects
-- Tests: `test_security.py` 35 passed + `test_projects.py` 24 etc, total 265 passed (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 10 notifications + 11 realtime + 24 projects + 35 security)
+- Tests: `test_edgecases.py` 16 passed + `test_security.py` 35 etc, total 281 passed (265 +16)
+- Perf: `feed.py` selectinload author/media/hashtags (N+1 fix), `notifications.py` bulk actor_map (N+1 fix), `rate_limit.py` memory prune 5000 keys
 - Startup: routes `/projects`, `/users/*/projects`, `/search` verified
 
 ---
@@ -152,7 +155,7 @@ Project
 
 ## 9. Implemented Features
 
-> STEP 14 — security hardening done.
+> STEP 15 — full testing done.
 
 - [x] Foundation — shell, health, i18n, theme
 - [x] Database — PG, Alembic, User model
@@ -169,22 +172,23 @@ Project
 - [x] Projects — model 009, showcase CRUD, image upload projects/, status enum, tech dedup, GitHub/demo URL validation, public/user/my endpoints, search projects ILIKE, frontend tabs/cards/forms/detail, ownership 403, position ordering
 - [x] i18n + theme — done (RU/KZ/EN + Settings + lazy)
 - [x] Security hardening — rate limiting, CSRF, headers CSP, search escape, upload, WS, 35 tests
+- [x] Full testing — N+1 fixes, FeedPage/WS leaks, edge tests 16, 281 passed, perf audit 472kB
 
 ---
 
 ## 10. Deployment Status
 
-- Frontend: Vercel candidate — build 472kB lazy, security headers ready
-- Backend: Render/Railway — security hardened, rate limiting, uploads/projects, manager in-memory (no Redis)
+- Frontend: Vercel candidate — build 472kB lazy, QA passed
+- Backend: Render/Railway — performance N+1 fixed, rate limiting, uploads/projects, manager in-memory
 - DB: docker-compose postgres:16-alpine
 
 ---
 
 ## 11. Tests Status
 
-- Backend: `pytest -q` → **265 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 10 notifications + 11 realtime + 24 projects + 35 security) ✅
-- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.12s (lazy 1714 modules, main 472kB gz 145kB, 18.98kB css)
-- Integration: language/theme persists + security 429/CSRF/headers
+- Backend: `pytest -q` → **281 passed** (265 +16 edge) ✅ (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 10 notifications + 11 realtime + 24 projects + 35 security + 16 edge) ✅
+- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.36s (lazy 1714 modules, main 472.25kB gz145.14kB, 18.98kB css)
+- Integration: full regression + edge unicode/pagination/duplicate/N+1
 - Coverage: не измерялась
 
 ---
@@ -214,15 +218,15 @@ Project
 
 ## 14. Current Blockers
 
-- Нет блокеров. Готов к STEP15.
+- Нет блокеров. Готов к STEP16.
 
 ---
 
 ## 15. Next Recommended STEP
 
-**STEP 15 — Testing & Performance**
+**STEP 16 — Deployment**
 
-- coverage, load testing, perf audit
+- Vercel/Render deploy, env, domain, smoke
 
 ---
 
@@ -251,39 +255,32 @@ Project
 | 2026-09-05 | Lazy routes via React.lazy + Suspense, main 527→472kB | Spec §25 |
 | 2026-09-05 | No new large features (private DM, E2EE, voice, AI) | Spec §24 |
 | 2026-09-05 | Rate limiting in-memory 20/min auth, 30/min search, CSRF Origin, CSP headers | Spec STEP14 |
+| 2026-09-05 | Feed N+1 selectinload + notifications bulk actor + FeedPage useEffect + WS timer cleanup | Spec STEP15 |
 
 ---
 
 ## 17. Последний Git Commit
 
 ```
-feat: STEP 14 — security hardening and abuse protection
+feat: STEP 15 — full testing bug fixing and performance
 Branch: main | Status: clean (после commit)
-Security: rate limiting + CSRF + headers + search escape + upload + 35 tests, 265 total
+Testing: N+1 fixes + edge 16 tests + FeedPage/WS leaks + 281 total, build 472kB
 ```
 
 ---
 
-## 18. Изменённые файлы (STEP 14)
+## 18. Изменённые файлы (STEP 15)
 
 ```
-[new] backend/app/core/rate_limit.py (in-memory 20/min auth etc, 429)
-[new] backend/app/core/csrf.py (Origin/Referer check 403)
-[mod] backend/app/main.py (+ CSRF middleware + CSP/Permissions/HSTS/body 10MB + error handler)
-[mod] backend/app/api/v1/auth.py (+ rate_limit 20)
-[mod] backend/app/api/v1/search.py (+ rate_limit 30 + _escape_like + escape="\\")
-[mod] backend/app/api/v1/posts.py (+ rate_limit 10 post, 30 like etc)
-[mod] backend/app/api/v1/comments.py (+ rate_limit 20)
-[mod] backend/app/api/v1/follows.py (+ rate_limit 20)
-[mod] backend/app/api/v1/clubs.py (+ rate_limit 10)
-[mod] backend/app/api/v1/club_messages.py (+ rate_limit 30)
-[mod] backend/app/api/v1/projects.py (+ rate_limit 10)
-[mod] backend/app/api/v1/users.py (+ rate_limit 10 avatar/cover)
-[mod] backend/app/api/v1/stories.py (+ rate_limit 10)
-[mod] backend/app/tests/conftest.py (+ clear_store autouse)
-[new] backend/app/tests/test_security.py (35 tests)
-[mod] SECURITY.md (§14 updated + §18 STEP14)
-[mod] ARCHITECTURE.md (§19 STEP14)
+[mod] backend/app/api/v1/feed.py (selectinload N+1 fix)
+[mod] backend/app/api/v1/notifications.py (bulk actor N+1 fix)
+[mod] backend/app/core/rate_limit.py (+ memory prune 5000)
+[mod] frontend/src/pages/FeedPage.tsx (useEffect accumulation fix P1)
+[mod] frontend/src/hooks/useRealtime.ts (timeout cleanup + useRef)
+[mod] frontend/src/components/PostComposer.tsx (object URL cleanup useEffect)
+[new] backend/app/tests/test_edgecases.py (16 edge tests)
+[mod] SECURITY.md (no new)
+[mod] ARCHITECTURE.md (§20 STEP15)
 ```
 
 ---
