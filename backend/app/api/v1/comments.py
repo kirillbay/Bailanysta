@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
 from app.database.session import get_db
+from app.core.rate_limit import rate_limit
 from app.models.user import User
 from app.models.post import Post
 from app.models.social import Comment
@@ -32,7 +33,7 @@ def list_comments(post_id: uuid.UUID, db: Session = Depends(get_db), limit: int 
     comments = db.query(Comment).filter(Comment.post_id == post_id).order_by(Comment.created_at.asc()).offset(offset).limit(min(limit,50)).all()
     return [_comment_to_read(c) for c in comments]
 
-@router.post("/posts/{post_id}/comments", response_model=CommentRead, status_code=status.HTTP_201_CREATED)
+@router.post("/posts/{post_id}/comments", dependencies=[Depends(rate_limit(limit=20, window=60, key_prefix="comment_create", by_user=True))], response_model=CommentRead, status_code=status.HTTP_201_CREATED)
 async def create_comment(post_id: uuid.UUID, payload: CommentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:

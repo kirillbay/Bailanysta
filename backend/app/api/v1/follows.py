@@ -7,6 +7,7 @@ from sqlalchemy import func
 
 from app.core.deps import get_current_user
 from app.database.session import get_db
+from app.core.rate_limit import rate_limit
 from app.models.user import User
 from app.models.follow import Follow
 
@@ -23,7 +24,7 @@ def _enrich_user(u: User, db: Session, current_user_id=None):
         "followers_count": followers, "following_count": following, "is_following": is_following
     }
 
-@router.post("/{username}/follow", status_code=status.HTTP_201_CREATED)
+@router.post("/{username}/follow", dependencies=[Depends(rate_limit(limit=20, window=60, key_prefix="follow", by_user=True))], status_code=status.HTTP_201_CREATED)
 async def follow_user(username: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     target = db.query(User).filter(User.username == username.strip()).first()
     if not target:

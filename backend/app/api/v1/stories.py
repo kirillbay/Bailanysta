@@ -10,6 +10,7 @@ from sqlalchemy import func
 
 from app.core.deps import get_current_user
 from app.database.session import get_db
+from app.core.rate_limit import rate_limit
 from app.models.user import User
 from app.models.story import Story
 from app.models.follow import Follow
@@ -26,7 +27,7 @@ def _story_to_read(s: Story):
         "created_at": s.created_at, "expires_at": s.expires_at
     }
 
-@router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
+@router.post("", dependencies=[Depends(rate_limit(limit=10, window=60, key_prefix="story_create", by_user=True))], response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_story(
     file: UploadFile = File(None),
     text: str = Form(default=None),

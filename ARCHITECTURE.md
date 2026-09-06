@@ -425,4 +425,16 @@ Project
 - Accessibility: semantic `button` vs `div`, `label htmlFor`, `aria-label` for icon-only (Heart/MessageCircle/Repeat2/Bookmark/Share2 → a11y.*), `role=alert` for errors, `aria-busy`, keyboard Tab flows (Login→Register→Post→Project→Channel→Settings) no trap, focus visible `ring-2`
 - Bundle: `App.tsx` lazy 14 routes `Suspense` fallback skeleton, Vite code-split per route, main 472kB gzip 145kB (css 18.98kB) vs 527kB before, chunk warning mitigated but remains near threshold (documented debt, stability > optimization)
 - No new large features (private DM, E2EE, voice, AI, GitHub OAuth) per §24
-- Следующий: **STEP 14 — Security Hardening**
+- Следующий: **STEP 15 — Testing & Performance**
+
+## 19. STEP 14 Implementation (2026-09-05)
+
+**Security Hardening & Abuse Protection реализован:**
+- `core/rate_limit.py` — sliding window `dict[key, deque[timestamps]]` `X-Forwarded-For` + `by_user` + `429`, limits: auth 20/min, post 10/min, like 30/min, comment 20/min, follow 20/min, club 10/min, message 30/min, project 10/min, avatar 10/min, search 30/min, `clear_store()` autouse
+- `core/csrf.py` — Origin/Referer check for POST/PUT/PATCH/DELETE with cookies → `403 CSRF check failed`, `SameSite=Lax` + CORS, middleware `csrf_middleware` в `main.py`
+- `main.py` — security headers: `X-Content-Type-Options nosniff`, `X-Frame-Options DENY`, `Referrer-Policy strict-origin-when-cross-origin`, `Permissions-Policy camera=()`, `CSP default-src 'self'` etc, `HSTS` prod, body `10MB →413`, error handler preserves `HTTPException` else `500`
+- `api/v1/search.py` — `MAX_Q_LEN 100`, `_escape_like` `%`→`\%` `_`→`\_` + `escape="\\"` + `rate_limit 30/min`, parameterized
+- `services/storage.py` — `Pillow verify`, `UUID`, `safe_subdir`, `SVG 415`, `10MB` guard
+- Frontend: no `dangerouslySetInnerHTML`, `rel="noopener noreferrer"` для external links, `a11y` уже в STEP13
+- Tests: `tests/test_security.py` 35 новых (auth, CSRF, IDOR, privilege, rate limit 429, input, XSS, URL, upload, headers, WS, notification privacy, search wildcard)
+- Следующий: **STEP 15 — Testing & Performance**

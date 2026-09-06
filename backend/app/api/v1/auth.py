@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.security import hash_password, verify_password, create_access_token, set_auth_cookie, clear_auth_cookie
 from app.core.deps import get_current_user
+from app.core.rate_limit import rate_limit
 from app.database.session import get_db
 from app.models.user import User
 from app.schemas.auth import RegisterRequest, LoginRequest
@@ -22,7 +23,7 @@ def _normalize_username(username: str) -> str:
     return username.strip()
 
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit(limit=20, window=60, key_prefix="auth_register"))])
 def register(payload: RegisterRequest, response: Response, db: Session = Depends(get_db)):
     username = _normalize_username(payload.username)
     email = _normalize_email(str(payload.email))
@@ -58,7 +59,7 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
     return user
 
 
-@router.post("/login", response_model=UserRead)
+@router.post("/login", response_model=UserRead, dependencies=[Depends(rate_limit(limit=20, window=60, key_prefix="auth_login"))])
 def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
     identifier = payload.identifier.strip()
     is_email = "@" in identifier

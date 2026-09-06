@@ -7,6 +7,7 @@ from sqlalchemy import func, or_
 
 from app.core.deps import get_current_user
 from app.database.session import get_db
+from app.core.rate_limit import rate_limit
 from app.models.user import User
 from app.models.club import Club, ClubMember, slugify
 from app.schemas.club import ClubCreate, ClubUpdate
@@ -47,7 +48,7 @@ def _club_to_read(club: Club, db: Session, current_user_id=None):
         "members_count": count, "is_member": is_member, "role": role
     }
 
-@router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
+@router.post("", dependencies=[Depends(rate_limit(limit=10, window=60, key_prefix="club_create", by_user=True))], response_model=dict, status_code=status.HTTP_201_CREATED)
 def create_club(payload: ClubCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     base_slug = slugify(payload.name)
     slug = base_slug

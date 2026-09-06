@@ -6,6 +6,7 @@ import sqlalchemy as sa
 from sqlalchemy import func, or_
 
 from app.database.session import get_db
+from app.core.rate_limit import rate_limit
 from app.models.user import User
 from app.models.post import Post, Hashtag
 from app.models.follow import Follow
@@ -15,6 +16,10 @@ from app.models.project import Project
 router = APIRouter(prefix="/search", tags=["search"])
 
 MAX_Q_LEN = 100
+
+def _escape_like(s: str) -> str:
+    # Escape SQL wildcards for LIKE
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 def _post_enrich(posts, db, q_user_id=None):
     if not posts:
@@ -43,7 +48,7 @@ def _post_enrich(posts, db, q_user_id=None):
     return result
 
 @router.get("", response_model=dict)
-def search(q: str = Query("", max_length=MAX_Q_LEN), type: str = Query("all", pattern="^(all|users|posts|hashtags|projects)$"), limit: int = Query(10, ge=1, le=50), offset: int = Query(0, ge=0), db: Session = Depends(get_db)):
+def search(q: str = Query("", max_length=MAX_Q_LEN), type: str = Query("all", pattern="^(all|users|posts|hashtags|projects)$"), limit: int = Query(10, ge=1, le=50), offset: int = Query(0, ge=0), db: Session = Depends(get_db), _rl: bool = Depends(rate_limit(limit=30, window=60, key_prefix="search"))):
     q = (q or "").strip()
     if not q:
         return {"users": [], "posts": [], "hashtags": [], "projects": [], "query": q}
@@ -51,11 +56,11 @@ def search(q: str = Query("", max_length=MAX_Q_LEN), type: str = Query("all", pa
         raise HTTPException(status_code=422, detail="Query too long")
     # optional current user for is_following/liked flags — try to get from cookie but search is public, so no auth required
     result = {"query": q, "users": [], "posts": [], "hashtags": [], "projects": []}
-    q_lower = q.lower().lstrip("#")
+    q_lower = _escape_like(q.lower().lstrip("#"))
     # Users
     if type in ("all", "users"):
         like = f"%{q_lower}%"
-        users = db.query(User).filter(or_(func.lower(User.username).like(like), func.lower(User.display_name).like(like))).limit(min(limit,50)).offset(offset).all()
+        users = db.query(User).filter(or_(func.lower(User.username).like(like, escape="\\"), func.lower(User.display_name).like(like, escape="\\"))).limit(min(limit,50)).offset(offset).all()
         enriched = []
         for u in users:
             followers = db.query(func.count(Follow.id)).filter(Follow.following_id == u.id).scalar() or 0
@@ -66,12 +71,12 @@ def search(q: str = Query("", max_length=MAX_Q_LEN), type: str = Query("all", pa
     if type in ("all", "posts"):
         # content ILIKE or hashtag
         like = f"%{q_lower}%"
-        posts = db.query(Post).filter(func.lower(Post.content).like(like)).order_by(Post.created_at.desc()).limit(min(limit,50)).offset(offset).all()
+        posts = db.query(Post).filter(func.lower(Post.content).like(like, escape="\\")).order_by(Post.created_at.desc()).limit(min(limit,50)).offset(offset).all()
         result["posts"] = _post_enrich(posts, db)
     # Hashtags
     if type in ("all", "hashtags"):
         like = f"%{q_lower}%"
-        tags = db.query(Hashtag).filter(func.lower(Hashtag.name).like(like)).limit(min(limit,50)).offset(offset).all()
+        tags = db.query(Hashtag).filter(func.lower(Hashtag.name).like(like, escape="\\")).limit(min(limit,50)).offset(offset).all()
         # count posts per hashtag
         result["hashtags"] = [{"id": str(t.id), "name": t.name, "posts_count": db.query(func.count(Post.id)).join(Post.hashtags).filter(Hashtag.id == t.id).scalar() or 0} for t in tags]
     # Projects — search by name / description / technologies (ILIKE for MVP, parameterized)
@@ -81,9 +86,9 @@ def search(q: str = Query("", max_length=MAX_Q_LEN), type: str = Query("all", pa
         # Use func.lower on casted fields where applicable
         projects = db.query(Project).filter(
             or_(
-                func.lower(Project.name).like(like),
-                func.lower(Project.description).like(like),
-                func.lower(func.cast(Project.technologies, sa.String)).like(like),
+                func.lower(Project.name).like(like, escape="\\"),
+                func.lower(Project.description).like(like, escape="\\"),
+                func.lower(func.cast(Project.technologies, sa.String)).like(like, escape="\\"),
             )
         ).order_by(Project.created_at.desc()).limit(min(limit,50)).offset(offset).all()
         result["projects"] = [

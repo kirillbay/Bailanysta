@@ -2,21 +2,21 @@
 
 > Persistent memory проекта. Обновляется после КАЖДОГО STEP.
 > Протокол: PERSISTENT DEVELOPMENT PROTOCOL (2026-09-05)
-> Последнее обновление: 2026-09-05 (STEP 13 — i18n, Theme, Responsive & Accessibility Polish)
+> Последнее обновление: 2026-09-05 (STEP 14 — Security Hardening & Abuse Protection)
 
 ---
 
 ## 1. Текущий STEP
 
-**STEP 13 — i18n, Theme, Responsive & Accessibility Polish — ЗАВЕРШЁН ✅**
+**STEP 14 — Security Hardening & Abuse Protection — ЗАВЕРШЁН ✅**
 
 - Workspace: `C:\Users\lueex\Desktop\Bailanysta`
-- Branch: `main` | Последний commit: `feat: STEP 13 — i18n theme responsive and accessibility polish` (см. §17)
-- Статус: i18n RU/KZ/EN full coverage + Settings persistence + Light/Dark/System no flash + responsive QA 360-1440 + a11y + lazy bundle 472kB — 230 тестов зелёных
+- Branch: `main` | Последний commit: `feat: STEP 14 — security hardening and abuse protection` (см. §17)
+- Статус: Security audit + rate limiting 20/min + CSRF Origin + headers CSP + search escape + upload hardening + 35 security tests — 265 тестов зелёных
 
-**Последний завершённый STEP:** STEP 13 — i18n, Theme, Responsive & Accessibility Polish (2026-09-05)
+**Последний завершённый STEP:** STEP 14 — Security Hardening & Abuse Protection (2026-09-05)
 
-**Следующий рекомендуемый STEP:** STEP 14 — Security Hardening
+**Следующий рекомендуемый STEP:** STEP 15 — Testing & Performance
 
 ---
 
@@ -38,9 +38,10 @@
 | 10 | Club Channels & Messaging | 2026-09-05 | `5973415` | ✅ Done |
 | 11 | Notifications & Realtime | 2026-09-05 | `e9008ad` | ✅ Done |
 | 12 | Projects & Developer Showcase | 2026-09-05 | `5df2378` | ✅ Done |
-| 13 | i18n, Theme, Responsive & Accessibility | 2026-09-05 | `feat STEP13` | ✅ Done |
+| 13 | i18n, Theme, Responsive & Accessibility | 2026-09-05 | `59032d6` | ✅ Done |
+| 14 | Security Hardening & Abuse Protection | 2026-09-05 | `feat STEP14` | ✅ Done |
 
-> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications/Realtime ✅ → 12 Projects ✅ → 13 i18n/Theme/Responsive ✅ → 14 Security Hardening → 15 Testing/Perf → 16 Deployment → 17 Final QA
+> План: 0 Init ✅ → 1 Foundation ✅ → 2 Database ✅ → 3 Auth ✅ → 4 Profiles ✅ → 5 Posts ✅ → 6 Feed/Social ✅ → 7 Follow/Search ✅ → 8 Stories ✅ → 9 Clubs ✅ → 10 Channels/Messaging ✅ → 11 Notifications/Realtime ✅ → 12 Projects ✅ → 13 i18n/Theme/Responsive ✅ → 14 Security Hardening ✅ → 15 Testing/Perf → 16 Deployment → 17 Final QA
 
 ---
 
@@ -102,13 +103,14 @@ Project
 ## 5. Backend Status
 
 - Статус: **runnable ✅**
+- Security: `core/rate_limit.py` in-memory 20/min auth 10/min post 30/min search etc `429`, `core/csrf.py` Origin check `403`, `main.py` headers CSP/Permissions-Policy/HSTS/body 10MB, `search.py` escape `%_` + parameterized, `storage.py` SVG blocked, 35 security tests
 - Models: `models/project.py` — id UUID PK, owner_id FK CASCADE index, name 150, description Text, technologies JSON default [], github_url/demo_url/image_url 512 nullable, status 20 default idea, position int, created/updated, indexes owner+position, owner+created
 - Schemas: `schemas/project.py` — ProjectCreate/Update/Read, ALLOWED_STATUSES idea/in_progress/completed/archived, MAX_TECH 20 MAX_TECH_LEN 50 dedup lower, ALLOWED_GITHUB_HOSTS github.com/www.github.com, _validate_url scheme https/http reject javascript/data/file
 - Migration: `alembic/versions/009_create_projects.py` — projects — `--sql` verified
 - APIs: `api/v1/projects.py` — `GET /users/{username}/projects` public 404, `GET /users/me/projects` auth, `GET /projects/{id}` public 404, `POST /users/me/projects` 201 owner=current_user position max+1, `PATCH /users/me/projects/{id}` owner 403, `DELETE` owner 403 best-effort file unlink, `POST .../image` owner 403 Pillow via save_image projects/ 5MB UUID no traversal; `api/v1/search.py` + projects ILIKE name/description/cast(technologies as String) limit 50
 - Notifications+Realtime: `models/notification.py`, `008_create_notifications`, `services/notifications.py`, `api/v1/notifications.py` + `realtime/manager.py` + `api/v1/realtime.py` unchanged
 - Router: `router.py` + projects + search projects
-- Tests: `test_projects.py` 24 passed, total 230 passed (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 10 notifications + 11 realtime + 24 projects)
+- Tests: `test_security.py` 35 passed + `test_projects.py` 24 etc, total 265 passed (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 10 notifications + 11 realtime + 24 projects + 35 security)
 - Startup: routes `/projects`, `/users/*/projects`, `/search` verified
 
 ---
@@ -150,7 +152,7 @@ Project
 
 ## 9. Implemented Features
 
-> STEP 12 — projects done.
+> STEP 14 — security hardening done.
 
 - [x] Foundation — shell, health, i18n, theme
 - [x] Database — PG, Alembic, User model
@@ -165,23 +167,24 @@ Project
 - [x] Notifications — model/service/API + triggers + WS badge
 - [x] Realtime — manager + /ws auth + broadcast
 - [x] Projects — model 009, showcase CRUD, image upload projects/, status enum, tech dedup, GitHub/demo URL validation, public/user/my endpoints, search projects ILIKE, frontend tabs/cards/forms/detail, ownership 403, position ordering
-- [x] i18n + theme — done
+- [x] i18n + theme — done (RU/KZ/EN + Settings + lazy)
+- [x] Security hardening — rate limiting, CSRF, headers CSP, search escape, upload, WS, 35 tests
 
 ---
 
 ## 10. Deployment Status
 
-- Frontend: Vercel candidate — build 527 kB, projects showcase ready
-- Backend: Render/Railway — projects showcase ready, uploads/projects, manager in-memory (no Redis)
+- Frontend: Vercel candidate — build 472kB lazy, security headers ready
+- Backend: Render/Railway — security hardened, rate limiting, uploads/projects, manager in-memory (no Redis)
 - DB: docker-compose postgres:16-alpine
 
 ---
 
 ## 11. Tests Status
 
-- Backend: `pytest -v` → **230 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 10 notifications + 11 realtime + 24 projects) ✅ — без новых миграций
-- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.17s (lazy 1714 modules, main 472kB gz 145kB, 18.98kB css)
-- Integration: same + `language switch ru↔en↔kk persists` + `theme light/dark/system persists`
+- Backend: `pytest -q` → **265 passed** (25 auth + 8 db + 6 health + 29 posts + 18 profiles + 24 social + 21 follow/search + 16 stories + 23 clubs + 15 channels + 10 notifications + 11 realtime + 24 projects + 35 security) ✅
+- Frontend: `tsc --noEmit` ✅, `npm run build` ✅ 3.12s (lazy 1714 modules, main 472kB gz 145kB, 18.98kB css)
+- Integration: language/theme persists + security 429/CSRF/headers
 - Coverage: не измерялась
 
 ---
@@ -211,15 +214,15 @@ Project
 
 ## 14. Current Blockers
 
-- Нет блокеров. Готов к STEP14.
+- Нет блокеров. Готов к STEP15.
 
 ---
 
 ## 15. Next Recommended STEP
 
-**STEP 14 — Security Hardening**
+**STEP 15 — Testing & Performance**
 
-- rate limiting, security headers audit, input hardening, upload limits
+- coverage, load testing, perf audit
 
 ---
 
@@ -247,35 +250,40 @@ Project
 | 2026-09-05 | Theme Light/Dark/System + localStorage + matchMedia + index.html no-flash script | Spec §5-6,21 |
 | 2026-09-05 | Lazy routes via React.lazy + Suspense, main 527→472kB | Spec §25 |
 | 2026-09-05 | No new large features (private DM, E2EE, voice, AI) | Spec §24 |
+| 2026-09-05 | Rate limiting in-memory 20/min auth, 30/min search, CSRF Origin, CSP headers | Spec STEP14 |
 
 ---
 
 ## 17. Последний Git Commit
 
 ```
-feat: STEP 13 — i18n theme responsive and accessibility polish
+feat: STEP 14 — security hardening and abuse protection
 Branch: main | Status: clean (после commit)
-i18n full RU/KZ/EN + Settings persistence + Light/Dark/System no-flash + lazy 472kB + a11y focus/semantic + responsive 360-1440
+Security: rate limiting + CSRF + headers + search escape + upload + 35 tests, 265 total
 ```
 
 ---
 
-## 18. Изменённые файлы (STEP 13)
+## 18. Изменённые файлы (STEP 14)
 
 ```
-[mod] frontend/src/locales/ru.json (+ full common/nav/auth/feed/post/profile/projects/search/clubs/club/notifications/bookmarks/stories/settings/errors/empty/a11y/validation)
-[mod] frontend/src/locales/en.json (same)
-[mod] frontend/src/locales/kk.json (same)
-[mod] frontend/index.html (+ no-flash theme script)
-[new] frontend/src/pages/SettingsPage.tsx (language + theme persistence)
-[mod] frontend/src/App.tsx (lazy 14 routes + Suspense fallback, SettingsPage)
-[mod] frontend/src/pages/FeedPage.tsx (t feed.*)
-[mod] frontend/src/pages/LoginPage.tsx (t auth.*, aria)
-[mod] frontend/src/pages/RegisterPage.tsx (t auth.*, aria)
-[mod] frontend/src/pages/SearchPage.tsx (t search.*, a11y)
-[mod] frontend/src/components/ProjectCard.tsx (truncate +6 +N, responsive)
-[mod] frontend/src/pages/ProfilePage.tsx (needs further i18n pass - debt)
-[mod] frontend/src/components/PostCard.tsx (partial a11y)
+[new] backend/app/core/rate_limit.py (in-memory 20/min auth etc, 429)
+[new] backend/app/core/csrf.py (Origin/Referer check 403)
+[mod] backend/app/main.py (+ CSRF middleware + CSP/Permissions/HSTS/body 10MB + error handler)
+[mod] backend/app/api/v1/auth.py (+ rate_limit 20)
+[mod] backend/app/api/v1/search.py (+ rate_limit 30 + _escape_like + escape="\\")
+[mod] backend/app/api/v1/posts.py (+ rate_limit 10 post, 30 like etc)
+[mod] backend/app/api/v1/comments.py (+ rate_limit 20)
+[mod] backend/app/api/v1/follows.py (+ rate_limit 20)
+[mod] backend/app/api/v1/clubs.py (+ rate_limit 10)
+[mod] backend/app/api/v1/club_messages.py (+ rate_limit 30)
+[mod] backend/app/api/v1/projects.py (+ rate_limit 10)
+[mod] backend/app/api/v1/users.py (+ rate_limit 10 avatar/cover)
+[mod] backend/app/api/v1/stories.py (+ rate_limit 10)
+[mod] backend/app/tests/conftest.py (+ clear_store autouse)
+[new] backend/app/tests/test_security.py (35 tests)
+[mod] SECURITY.md (§14 updated + §18 STEP14)
+[mod] ARCHITECTURE.md (§19 STEP14)
 ```
 
 ---

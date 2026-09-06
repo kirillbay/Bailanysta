@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.post import Post
 from app.schemas.user import UserPublic, UserRead, UserUpdate
 from app.services.storage import save_image
+from app.core.rate_limit import rate_limit
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -89,7 +90,7 @@ def get_public_profile(username: str, request: Request, db: Session = Depends(ge
     }
 
 
-@router.post("/me/avatar", response_model=UserRead)
+@router.post("/me/avatar", dependencies=[Depends(rate_limit(limit=10, window=60, key_prefix="avatar_upload", by_user=True))], response_model=UserRead)
 async def upload_avatar(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     data = await file.read()
     if not data:
@@ -101,7 +102,7 @@ async def upload_avatar(file: UploadFile = File(...), db: Session = Depends(get_
     return current_user
 
 
-@router.post("/me/cover", response_model=UserRead)
+@router.post("/me/cover", dependencies=[Depends(rate_limit(limit=10, window=60, key_prefix="cover_upload", by_user=True))], response_model=UserRead)
 async def upload_cover(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     data = await file.read()
     if not data:

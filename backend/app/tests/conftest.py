@@ -18,6 +18,21 @@ from sqlalchemy.pool import StaticPool
 from app.database.base import Base
 import app.models  # noqa: F401 — register users
 
+# Clear rate limit store between tests to avoid cross-test flakiness (in-memory single-instance)
+@pytest.fixture(autouse=True)
+def _clear_rate_limit():
+    try:
+        from app.core.rate_limit import clear_store
+        clear_store()
+    except Exception:
+        pass
+    yield
+    try:
+        from app.core.rate_limit import clear_store
+        clear_store()
+    except Exception:
+        pass
+
 
 TEST_DB_PATH = Path(__file__).parent / ".test_bailanysta.db"
 

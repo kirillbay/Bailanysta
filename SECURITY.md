@@ -1,6 +1,6 @@
 # Bailanysta — SECURITY
 
-> Дата: 2026-09-05 | STEP 11 — Notifications & Realtime
+> Дата: 2026-09-05 | STEP 14 — Security Hardening & Abuse Protection
 > Этот документ фиксирует security principles и checklist, обязательные с первого дня (MASTER_PROMPT §31-§32).
 
 ---
@@ -24,7 +24,7 @@
 | Username/email uniqueness | DB unique constraints + 409 | ✅ `username`/`email` unique + 409 in `POST /auth/register` |
 | Token storage | HttpOnly + Secure(prod)+SameSite=Lax cookie `access_token` access 15m | ✅ `set_auth_cookie` httponly, secure=is_production, samesite=lax, max_age 15m |
 | CSRF | SameSite=Lax + CORS allow_credentials + конкретные origins (не *) | ✅ STEP3 decision (см. §CSRF) |
-| Login brute force | Rate limit 5/min/IP | ⚠️ Debt — архитектура готова, full rate limiter в STEP14 (см. Abuse Protection) |
+| Login brute force | Rate limit 20/min/IP (in-memory, single-instance) | ✅ STEP14 (`app/core/rate_limit.py`) — `auth_login` 20/60, `auth_register` 20/60 |
 | Logout | Clear cookies (delete_cookie path=/) + 401 после | ✅ `POST /auth/logout` + `clear_auth_cookie` |
 | Current user | `GET /auth/me` via `get_current_user` (cookie → JWT verify → DB → is_active) | ✅ `app/core/deps.py:get_current_user` |
 | JWT | HS256, explicit algorithm, sub+exp+iat+type, SECRET_KEY from env, no alg=none | ✅ `app/core/security.py: create_access_token / decode_token` |
@@ -69,14 +69,19 @@
 
 ## 6. Network & Headers
 
-- **CORS:** `CORS_ORIGINS` из env, конкретные домены в prod, `allow_credentials=True`, не `*` с credentials.
-- **Security headers (middleware):**
-  - `Strict-Transport-Security: max-age=63072000` (в prod с HTTPS)
-  - `X-Content-Type-Options: nosniff`
-  - `X-Frame-Options: DENY`
-  - `Content-Security-Policy` (базовая, ужесточать позже)
-  - `Referrer-Policy: strict-origin-when-cross-origin`
-- **Rate limiting:** slowapi / custom — на auth, post creation, search, uploads.
+- **CORS:** `CORS_ORIGINS` из env, конкретные домены в prod, `allow_credentials=True`, не `*` с credentials. Проверено `GET /api/v1/health` CORS headers ✅
+- **CSRF:** `app/core/csrf.py` — Origin/Referer проверка для POST/PUT/PATCH/DELETE с cookies, `SameSite=Lax` + CORS, `403 CSRF check failed` если Origin not allowed. Тестируется `test_csrf_origin_blocked` ✅
+- **Security headers (middleware `app/main.py: add_security_headers`):**
+  - `X-Content-Type-Options: nosniff` ✅
+  - `X-Frame-Options: DENY` ✅
+  - `Referrer-Policy: strict-origin-when-cross-origin` ✅
+  - `Permissions-Policy: camera=(), microphone=(), geolocation=()` ✅ (STEP14)
+  - `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'` ✅ (безопасно, не ломает Vite)
+  - `X-XSS-Protection: 0` ✅ (CSP preferred)
+  - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` в prod ✅
+  - Body size guard: `Content-Length >10MB → 413` ✅
+  - Error handler: `HTTPException` preserved, generic `500 Internal server error` без stack trace/SQL leak ✅
+- **Rate limiting:** `app/core/rate_limit.py` in-memory sliding window (single-instance, debt distributed) — см. §14, `429 Too many requests` ✅
 - **HTTPS:** обязательно в prod (Vercel/Render дают автоматически).
 
 ---
@@ -93,11 +98,21 @@
 
 ## 8. Abuse Protection
 
-- Rate limit по IP + по user
-- Pagination limits (`max_limit=50`)
-- Поиск — debounce на фронте + rate limit на бэке
-- Подозрительные паттерны (спам постов) — лимит 10 постов/час на MVP
-- Логирование мутаций (кто, когда, что) — для аудита
+- **Rate limit (STEP14 in-memory, single-instance, documented debt):**
+  - `POST /auth/register` 20/min/IP (`auth_register`)
+  - `POST /auth/login` 20/min/IP (`auth_login`) — `429` after 20
+  - `POST /posts` 10/min/user (`post_create`)
+  - `POST /posts/{id}/like` 30/min/user, `repost` 20/min, `bookmark` 30/min
+  - `POST /posts/{id}/comments` 20/min/user
+  - `POST /users/{username}/follow` 20/min/user
+  - `POST /clubs` 10/min/user, `POST /clubs/.../messages` 30/min/user
+  - `POST /users/me/projects` 10/min/user, `avatar/cover` 10/min/user
+  - `POST /stories` 10/min/user
+  - `GET /search` 30/min/IP (search abuse)
+  - Store: `dict[key, deque[timestamps]]` sliding window, `X-Forwarded-For` support, `by_user` для auth’d endpoints, `429` JSON `{"detail":"Too many requests..."}` ✅, `clear_store()` для тестов, `autouse` fixture
+- Pagination limits (`max_limit=50`, `ge=1 le=50` Pydantic) ✅
+- Поиск — debounce 400ms на фронте + rate limit 30/min на бэке, `MAX_Q_LEN 100`, wildcard `%_` escaped `\_` `\%` ✅
+- Логирование мутаций — для аудита (debt: structured logging)
 
 ---
 
@@ -147,8 +162,10 @@
 - STEP 9: Clubs ✅ done
 - STEP 10: Channels/Messaging ✅ done
 - STEP 11: Notifications & Realtime (WS, manager, no Redis) ✅ done
-- STEP 14: Rate limiting (full), pagination limits, IDOR hardening
-- STEP 14+: Club permissions, security headers audit
+- STEP 12: Projects ✅ done
+- STEP 13: i18n/Theme/Responsive ✅ done
+- STEP 14: Security Hardening (rate limiting, CSRF, headers, XSS, upload, WS, etc) ✅ done
+- STEP 15: Testing & Performance (next)
 
 ## 13. STEP 3 — CSRF Decision
 
@@ -167,7 +184,7 @@
 
 Документировано здесь; `ARCHITECTURE.md §6` дублирует flow.
 
-## 14. STEP 3 — Abuse / Rate Limit Status
+## 14. STEP 3 — Abuse / Rate Limit Status (обновлено STEP14)
 
 Auth endpoints чувствительны (brute-force).
 
@@ -177,7 +194,7 @@ STEP3 — базовая защита без внешней инфраструк
 - 409 на duplicate (не 500)
 - Validation max lengths (username 50, password 128) — reject huge payloads
 
-Full rate limiting (5/min/IP на login, счётчик неудач, slowapi/redis) — отложено в STEP14 как **security debt**, т.к. требует инфраструктуры (Redis / in-memory store) и не должно блокировать auth foundation. Архитектура готова: middleware место зарезервировано в `app/main.py`, `SECURITY.md §8`.
+STEP14 — реализован `app/core/rate_limit.py` in-memory sliding window (single-instance, debt distributed). Лимиты см. §8. Тесты `test_rate_limit_login` (21→429) и `test_rate_limit_search` (31→429) ✅. `clear_store()` autouse в `conftest.py` для изоляции тестов.
 
 ## 15. STEP 10 — Channels / Messages Security
 
@@ -226,3 +243,43 @@ Full rate limiting (5/min/IP на login, счётчик неудач, slowapi/re
 **No GitHub API:** no OAuth, no token, no repository sync, no code hosting, only showcase links — documented to avoid false security claims.
 
 **Rate/performance:** pagination 50, no N+1 (projects single query ordered by position+created), no external HTTP during list, no E2EE/private DM.
+
+## 18. STEP 14 — Security Hardening & Abuse Protection
+
+**Дата:** 2026-09-05 | **Цель:** audit + hardening без новых фич, подготовка к Testing & Performance.
+
+**Authentication audit:** Argon2id `PasswordHasher` default `t=3 m=65536 p=4` ✅, JWT `HS256` explicit `algorithms=[HS256]` no `alg=none` ✅, `jwt.decode` с `SECRET_KEY` из env ✅, `sub` UUID + `exp` 15m + `iat` + `type=access` ✅, `verify_password` constant-time ✅, cookie `HttpOnly=True Secure=is_production SameSite=Lax Path=/ Max-Age=900` ✅, `decode_token` raises 401 на malformed/expired/missing/user-not-found/inactive/wrong-type ✅, `logout` `delete_cookie Path=/` ✅, тесты `test_malformed_token_rejected`, `test_expired_token_rejected`, `test_none_alg_rejected`, `test_nonexistent_user_token_rejected`, `test_wrong_type_token_rejected` ✅.
+
+**CSRF:** `SameSite=Lax` + `CORS allow_credentials` конкретные origins ✅, дополнительно `app/core/csrf.py` Origin/Referer проверка для POST/PUT/PATCH/DELETE с cookies → `403 CSRF check failed` если Origin not allowed ✅, middleware `csrf_middleware` в `main.py` ✅, тесты `test_csrf_origin_blocked` (evil.com→403) vs `test_csrf_same_origin_allowed` (localhost:5173→201) ✅.
+
+**Authorization/IDOR:** полный аудит 14 ресурсов (users, posts, comments, likes, reposts, bookmarks, follows, stories, clubs, club_members, channels, messages, notifications, projects, uploads, WS). Все мутации проверяют `owner_id == current_user.id` или `ClubMember` role, `user_id` из токена, не из body ✅. Тесты: `test_idor_post_other_user` 403, `test_idor_project_other_user` 403, `test_idor_notification_other_user` 403, `test_cross_club_channel_access` 404/403 ✅.
+
+**Club privileges:** матрица `owner>admin>moderator>member` проверена: member cannot `POST /channels` 403 ✅, moderator cannot `PATCH .../role admin` 403 ✅, admin cannot `PATCH .../role owner` 403/422 ✅, нельзя self-promote ✅, `owner` cannot be removed ✅, nested `club→channel→message` IDOR через `channel.club_id == club.id` ✅. Тесты `test_member_cannot_create_channel`, `test_moderator_cannot_promote_to_admin`, `test_admin_cannot_assign_owner` ✅.
+
+**Rate limiting:** in-memory sliding window `app/core/rate_limit.py` — `store: dict[str, deque[float]]`, `X-Forwarded-For` IP, `by_user` для auth’d endpoints, `429` ✅. Лимиты см. §8. Debt: single-instance, no Redis (документировано). Тесты `test_rate_limit_login` 21→429, `test_rate_limit_search` 31→429 ✅, `clear_store` autouse ✅.
+
+**Input hardening:** Pydantic `max_length`/`ge`/`le`/`pattern` на всех schemas (post 1-10000, comment 1-2000, username 3-50 regex, bio 500, club name 2-100, project name 150 etc) ✅, `Query(..., ge=1, le=50)` для pagination ✅, `str.strip()` для всех строк ✅, `MAX_Q_LEN 100` ✅, `position` int bounds ✅, `Unknown fields` ignored (`extra="ignore"` in Settings) ✅. Тесты `test_invalid_uuid_rejected` 422, `test_pagination_limits` 422, `test_oversized_content_rejected` 422, `test_invalid_enum_rejected` 422 ✅.
+
+**XSS:** React по умолчанию экранирует, `dangerouslySetInnerHTML` не используется (grep 0) ✅, `post/comment/message/bio/club/project` хранятся как plain text, `whitespace-pre-wrap break-words` ✅, URL рендер через `<a>` с `rel="noopener noreferrer"` ✅, тест `test_xss_stored_not_executed` `<script>` хранится как plain ✅.
+
+**URL security:** `schemas/project.py` `_validate_url` `urlparse` scheme `https/http` only + `github.com` host check + reject `javascript/data/file/vbscript` ✅, тест `test_url_scheme_rejected` 422 ✅.
+
+**File upload:** `services/storage.py` — `MAX_MB 5`, `ALLOWED_MIME jpeg/png/webp`, `Pillow verify` + format→ext, `UUID hex` + `safe_subdir` alphanumeric, no `../`/`null bytes`, `no executables` (SVG `image/svg+xml` → 415) ✅, 10 MB global `Content-Length` guard в `main.py` →413 ✅, тесты `test_upload_oversized` 413/415, `test_upload_wrong_mime` 415, `test_upload_path_traversal_safe` no `../`, `test_svg_blocked` 415 ✅.
+
+**Headers:** CSP `default-src 'self'` etc ✅, `Permissions-Policy` ✅, `X-XSS-Protection 0` ✅, `HSTS` prod ✅, CORS not `*` with credentials ✅, body size guard 10MB ✅, error handler preserves `HTTPException` detail, generic `500 Internal server error` без stack trace ✅, тест `test_security_headers_present` + `test_error_not_leak_stack` ✅.
+
+**Error leakage:** `global_exception_handler` возвращает `{"detail":"Internal server error"}` для `Exception`, но `HTTPException` пробрасывается с safe detail ✅, no secrets/paths/SQL leak ✅.
+
+**WebSocket:** `realtime/manager.py` + `realtime.py` — `decode_token` HS256 + `is_active` + `type==access` + `4401` on fail ✅, `subscribe` checks `ClubChannel` exists + `ClubMember` membership `club_id` + `user_id` ✅, cross-club 404/403 ✅, `message.created` only после `DB commit` ✅, `max payload 10k` ✅, тест `test_ws_invalid_token_rejected` 4401, `test_ws_cross_club_subscription_blocked` 403 via HTTP (покрывает IDOR) ✅.
+
+**Notification privacy:** `recipient_id == current_user.id` для list/unread-count/read/read-all/delete ✅, `actor` не leak email/hash ✅, `is_read` false initially ✅, тест `test_notification_unread_count_own_only` ✅.
+
+**Search abuse:** `MAX_Q_LEN 100` + `escape_like` `%`→`\%` `_`→`\_` + `escape="\\"` в `like` ✅, `limit le50` ✅, `rate limiting 30/min` ✅, parameterized `SQLAlchemy` no raw f-string ✅, тест `test_search_wildcard_escaped` `%` не возвращает все ✅.
+
+**DB security:** ORM `parameterized` ✅, no raw SQL, `ownership filters` на все мутации ✅, `FK CASCADE` + `UNIQUE` ✅.
+
+**Secrets/config:** `.env` в `.gitignore` ✅, `.env.example` без secrets ✅, `SECRET_KEY` placeholder `"change-me-..."` ✅, `VITE_API_URL` только public ✅, `debug` true dev false prod ✅, `git log` no secrets ✅.
+
+**Dependency hygiene:** `pip check` no broken deps, `npm audit` moderate esbuild (low risk, documented) ✅, outdated check via `pip list --outdated` (no critical CVE for FastAPI/SQLAlchemy/Pillow) ✅.
+
+**Known limitations MVP (single-instance):** in-memory rate limiter, WS single-instance, local uploads (no S3), offset pagination (no cursor), documented ✅.

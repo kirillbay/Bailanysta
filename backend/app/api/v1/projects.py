@@ -10,6 +10,7 @@ from sqlalchemy import func
 
 from app.database.session import get_db
 from app.core.deps import get_current_user
+from app.core.rate_limit import rate_limit
 from app.models.user import User
 from app.models.project import Project
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectRead, OwnerPublic
@@ -65,7 +66,7 @@ def get_project(project_id: uuid.UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Project not found")
     return _to_read(p)
 
-@router.post("/users/me/projects", response_model=ProjectRead, status_code=201)
+@router.post("/users/me/projects", response_model=ProjectRead, status_code=201, dependencies=[Depends(rate_limit(limit=10, window=60, key_prefix="project_create", by_user=True))])
 def create_project(payload: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # ignore any owner_id from client — always current_user
     pos = _next_position(db, current_user.id)

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.core.deps import get_current_user
+from app.core.rate_limit import rate_limit
 from app.database.session import get_db
 from app.models.user import User
 from app.models.post import Post, PostMedia, Hashtag
@@ -87,7 +88,7 @@ def _get_current_user_optional(request: Request, db: Session):
         pass
     return None
 
-@router.post("", response_model=PostRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=PostRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit(limit=10, window=60, key_prefix="post_create", by_user=True))])
 async def create_post(
     content: str = Form(..., min_length=1, max_length=MAX_CONTENT_LEN),
     files: Optional[List[UploadFile]] = File(default=None),
@@ -202,7 +203,7 @@ def delete_post(post_id: uuid.UUID, db: Session = Depends(get_db), current_user:
     return None
 
 # ── Likes ──
-@router.post("/{post_id}/like", status_code=status.HTTP_201_CREATED)
+@router.post("/{post_id}/like", status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit(limit=30, window=60, key_prefix="like", by_user=True))])
 async def like_post(post_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
@@ -239,7 +240,7 @@ def unlike_post(post_id: uuid.UUID, db: Session = Depends(get_db), current_user:
     return None
 
 # ── Reposts ──
-@router.post("/{post_id}/repost", status_code=status.HTTP_201_CREATED)
+@router.post("/{post_id}/repost", status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit(limit=20, window=60, key_prefix="repost", by_user=True))])
 def repost(post_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
@@ -265,7 +266,7 @@ def unrepost(post_id: uuid.UUID, db: Session = Depends(get_db), current_user: Us
     return None
 
 # ── Bookmarks ──
-@router.post("/{post_id}/bookmark", status_code=status.HTTP_201_CREATED)
+@router.post("/{post_id}/bookmark", status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit(limit=30, window=60, key_prefix="bookmark", by_user=True))])
 def bookmark(post_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post:
