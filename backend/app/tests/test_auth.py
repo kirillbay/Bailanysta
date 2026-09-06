@@ -73,8 +73,10 @@ def test_register_success(client, db_session):
     r = register(client, username="reg_ok", email="reg_ok@example.com", password="Secret123!")
     assert r.status_code == 201, r.text
     data = r.json()
-    assert data["username"] == "reg_ok"
-    assert data["email"] == "reg_ok@example.com"
+    # Handle both old UserRead and new AuthResponse (user + access_token)
+    user_data = data.get("user", data)
+    assert user_data["username"] == "reg_ok"
+    assert user_data["email"] == "reg_ok@example.com"
     assert "password" not in r.text.lower()
     assert "password_hash" not in r.text
     assert "Set-Cookie" in r.headers
@@ -136,7 +138,9 @@ def test_login_success_by_email(client):
     register(client, username="login_email", email="login_email@example.com", password="Secret123!")
     r = login(client, "login_email@example.com", "Secret123!")
     assert r.status_code == 200
-    assert r.json()["username"] == "login_email"
+    data = r.json()
+    user_data = data.get("user", data)
+    assert user_data["username"] == "login_email"
     assert COOKIE_NAME in r.headers.get("Set-Cookie", "")
 
 
@@ -194,7 +198,10 @@ def test_me_authenticated(client):
     login(client, "me@example.com", "Secret123!")
     r = client.get("/api/v1/auth/me")
     assert r.status_code == 200
-    assert r.json()["username"] == "me_user"
+    data = r.json()
+    user_data = data.get("user", data)
+    # /auth/me still returns UserRead directly
+    assert (user_data.get("username") if isinstance(user_data, dict) and "username" in user_data else r.json()["username"]) == "me_user"
     assert "password_hash" not in r.text
 
 
@@ -281,10 +288,15 @@ def test_logout_without_auth_fails(client):
 def test_password_never_in_response(client):
     r = register(client, username="sec_user", email="sec@example.com", password="Secret123!")
     assert "Secret123!" not in r.text
-    assert "password" not in r.json()  # no password key
+    # Check that password not in user object (handle AuthResponse)
+    data = r.json()
+    user_data = data.get("user", data)
+    assert "password" not in user_data
     r2 = login(client, "sec@example.com", "Secret123!")
     assert "Secret123!" not in r2.text
-    assert "password" not in r2.json()
+    data2 = r2.json()
+    user_data2 = data2.get("user", data2)
+    assert "password" not in user_data2
 
 
 def test_jwt_signature_tampered_rejected(client):

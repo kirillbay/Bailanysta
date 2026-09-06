@@ -9,7 +9,7 @@ from app.core.deps import get_current_user
 from app.core.rate_limit import rate_limit
 from app.database.session import get_db
 from app.models.user import User
-from app.schemas.auth import RegisterRequest, LoginRequest
+from app.schemas.auth import RegisterRequest, LoginRequest, AuthResponse
 from app.schemas.user import UserRead
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -25,7 +25,7 @@ def _normalize_username(username: str) -> str:
     return username.strip()
 
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit(limit=20, window=60, key_prefix="auth_register"))])
+@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit(limit=20, window=60, key_prefix="auth_register"))])
 def register(payload: RegisterRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     username = _normalize_username(payload.username)
     email = _normalize_email(str(payload.email))
@@ -58,10 +58,10 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
 
     token = create_access_token(user.id)
     set_auth_cookie(response, token, request)
-    return user
+    return AuthResponse(user=user, access_token=token)
 
 
-@router.post("/login", response_model=UserRead, dependencies=[Depends(rate_limit(limit=20, window=60, key_prefix="auth_login"))])
+@router.post("/login", response_model=AuthResponse, dependencies=[Depends(rate_limit(limit=20, window=60, key_prefix="auth_login"))])
 def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     identifier = payload.identifier.strip()
     is_email = "@" in identifier
@@ -85,7 +85,7 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
 
     token = create_access_token(user.id)
     set_auth_cookie(response, token, request)
-    return user
+    return AuthResponse(user=user, access_token=token)
 
 
 def _ensure_demo_data(db, demo_user):
@@ -167,7 +167,7 @@ def _ensure_demo_data(db, demo_user):
         # Don't fail demo login if seed fails
         pass
 
-@router.post("/demo", response_model=UserRead, dependencies=[Depends(rate_limit(limit=10, window=60, key_prefix="demo"))])
+@router.post("/demo", response_model=AuthResponse, dependencies=[Depends(rate_limit(limit=10, window=60, key_prefix="demo"))])
 def demo_login(request: Request, response: Response, db: Session = Depends(get_db)):
     """Demo Mode — creates or returns demo account and logs in via normal cookie."""
     demo_username = "demo"
@@ -201,7 +201,7 @@ def demo_login(request: Request, response: Response, db: Session = Depends(get_d
             db.refresh(user)
     token = create_access_token(user.id)
     set_auth_cookie(response, token, request)
-    return user
+    return AuthResponse(user=user, access_token=token)
 
 
 @router.get("/me", response_model=UserRead)

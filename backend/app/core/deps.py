@@ -13,7 +13,13 @@ import jwt
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    # Try HttpOnly cookie first (local dev, same-site)
     token = request.cookies.get(COOKIE_NAME)
+    # Fallback to Authorization: Bearer for cross-site production (onrender.com public suffix blocks third-party cookies)
+    if not token:
+        auth = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth and auth.lower().startswith("bearer "):
+            token = auth[7:].strip()
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
